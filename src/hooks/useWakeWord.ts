@@ -112,7 +112,19 @@ export default function useWakeWord({
             const transcript = results[i][0].transcript.toLowerCase();
             console.log("Bumblebee scanning transcript snippet -> ", transcript);
             
-            if (transcript.includes('bumblebee')) {
+            const cleanTxt = transcript.replace(/[\s-]/g, '');
+            if (
+              cleanTxt.includes('bumblebee') || 
+              transcript.includes('bumblebee') || 
+              transcript.includes('bumble bee') || 
+              transcript.includes('bubblebee') || 
+              transcript.includes('bubble bee') || 
+              transcript.includes('bumbleby') || 
+              transcript.includes('bombbee') ||
+              transcript.includes('bumbly') ||
+              transcript.includes('honeybee') ||
+              transcript.includes('honey bee')
+            ) {
               console.log("Bumblebee: Wake word matched! Halting continuous scan immediately.");
               
               // Stop continuous scanning immediately to clear the microphone line

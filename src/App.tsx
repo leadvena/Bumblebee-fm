@@ -4,6 +4,7 @@ import useVoice from './hooks/useVoice';
 import useWakeWord from './hooks/useWakeWord';
 import usePWA from './hooks/usePWA';
 import { parseVoiceCommand, getRecommendations } from './utils/geminiApi';
+import { searchYouTube } from './utils/youtubeApi';
 import { Track, ScreenType } from './types';
 
 // Screen imports
@@ -105,8 +106,16 @@ export default function App() {
         if (query) {
           audio.setEqualizer(command === 'mood' ? 'lofi' : 'flat');
           setActiveScreen('now-playing');
-          // Perform automatic YouTube search and load top hit
-          const tracks = await audio.playTrack({ id: '', title: query, artist: 'Loading...', thumbnail: '' });
+          try {
+            const results = await searchYouTube(query);
+            if (results && results.length > 0) {
+              await audio.playTrack(results[0]);
+            } else {
+              voiceRef.current?.speak(`I searched but couldn't find any sweet tracks on YouTube matching ${query}.`);
+            }
+          } catch (err) {
+            console.error("Voice command play search failed:", err);
+          }
         }
         break;
       case 'skip':
@@ -136,7 +145,17 @@ export default function App() {
         break;
       case 'add_to_queue':
         if (query) {
-          voiceRef.current?.speak(`Adding that sweet track ${query} to queue list.`);
+          try {
+            const results = await searchYouTube(query);
+            if (results && results.length > 0) {
+              audio.addToQueue(results[0]);
+              voiceRef.current?.speak(`Added ${results[0].title} directly to your honey queue.`);
+            } else {
+              voiceRef.current?.speak(`Couldn't find any sweet tracks matching ${query} to add.`);
+            }
+          } catch (err) {
+            console.error("Voice add to queue fail:", err);
+          }
         }
         break;
       default:
@@ -201,17 +220,33 @@ export default function App() {
       if (response.recommendations && response.recommendations.length > 0) {
         voiceRef.current?.speak(response.speechResponse);
         setActiveScreen('now-playing');
-        audio.playTrack({
-          id: '',
-          title: response.recommendations[0].searchTerm,
-          artist: response.recommendations[0].label,
-          thumbnail: ''
-        });
+        
+        const mainRec = response.recommendations[0];
+        try {
+          const results = await searchYouTube(mainRec.searchTerm);
+          if (results && results.length > 0) {
+            await audio.playTrack(results[0]);
+            
+            // Queue up remaining recommendations in the background as a playlist!
+            for (let i = 1; i < response.recommendations.length; i++) {
+              try {
+                const subResults = await searchYouTube(response.recommendations[i].searchTerm);
+                if (subResults && subResults.length > 0) {
+                  audio.addToQueue(subResults[0]);
+                }
+              } catch (subErr) {
+                console.warn("Failed queuing sub suggestion:", subErr);
+              }
+            }
+          }
+        } catch (searchErr) {
+          console.error("Suggest search play failed:", searchErr);
+        }
       }
     } catch (e) {
       console.error("Smart historical compilation failed", e);
     }
-  }, [audio.history]);
+  }, [audio.history, audio.playTrack, audio.addToQueue]);
 
   // Handle playing custom queue tracks natively
   const handleQueuePlaySelected = useCallback((track: Track) => {
