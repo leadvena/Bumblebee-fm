@@ -128,6 +128,7 @@ export default function NowPlaying({
           onChange={onVolumeChange}
           isMuted={isMuted}
           onToggleMute={onToggleMute}
+          themeStyle={themeStyle}
         />
       </div>
 
@@ -137,6 +138,7 @@ export default function NowPlaying({
           isListening={isListening}
           onToggleListening={onToggleListening}
           statusText={statusText}
+          themeStyle={themeStyle}
         />
 
         {/* iOS Touch device tooltip fallback */}

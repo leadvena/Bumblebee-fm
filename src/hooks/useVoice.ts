@@ -29,6 +29,9 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// Global set to prevent garbage-collection of active SpeechSynthesisUtterances in Chromium browsers
+const activeUtterances = new Set<SpeechSynthesisUtterance>();
+
 interface UseVoiceOptions {
   onTranscriptReady: (transcript: string) => void;
   voiceEnabled: boolean; // Settings control
@@ -198,28 +201,21 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       window.__bumblebeeSpeechCore.isVoiceListening = false;
     }
 
-    const text = latestTranscriptRef.current;
-
     if (recognitionRef.current) {
       try {
-        // Disengage the listeners so the native async onend doesn't trigger double submissions
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.abort();
+        console.log("Bumblebee: Gentle stop requested. Finalizing spoken buffer capture...");
+        recognitionRef.current.stop(); // Stops mic recording instantly, lets the browser compile the final words of transcription, and triggers onresult / onend beautifully
       } catch (e) {
-        console.warn("Err disengaging event listeners on abort:", e);
+        console.warn("Speech Recognition failed to gently stop, forcing abort instead:", e);
+        try {
+          recognitionRef.current.onresult = null;
+          recognitionRef.current.onend = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.abort();
+        } catch (err) {}
+        recognitionRef.current = null;
+        setStatusText('Standby');
       }
-      recognitionRef.current = null;
-    }
-
-    // Handle instant firing with whatever transcription is currently in buffer
-    if (text.trim()) {
-      latestTranscriptRef.current = ''; // Prevent double-triggering
-      setStatusText(`"${text}"`);
-      onTranscriptReadyRef.current(text);
-    } else {
-      setStatusText('Standby');
     }
   }, []);
 
@@ -240,7 +236,9 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     }
 
     // Cancel any active utterance
-    window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
 
     // Mark system speaking immediately in global core
     if (window.__bumblebeeSpeechCore) {
@@ -270,7 +268,13 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       }
     };
 
+    // Keep safe tracking of completion to release global speaking locks
+    let hasCompleted = false;
     const handleSpeakComplete = () => {
+      if (hasCompleted) return;
+      hasCompleted = true;
+      activeUtterances.delete(utterance);
+      
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isSpeaking = false;
       }
@@ -279,8 +283,19 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       }
     };
 
+    // Save item in our global memory to prevent garbage collection interrupts
+    activeUtterances.add(utterance);
+
     utterance.onend = handleSpeakComplete;
     utterance.onerror = handleSpeakComplete;
+
+    // Safety timeout: in some browsers style speech synthesis complete callbacks get lost
+    setTimeout(() => {
+      if (!hasCompleted) {
+        console.warn("Bumblebee: Speak complete safety callback timeout reached.");
+        handleSpeakComplete();
+      }
+    }, 8000);
 
     window.speechSynthesis.speak(utterance);
     setStatusText(`Bumblebee: "${text}"`);

@@ -18,61 +18,61 @@ import Settings from './components/Settings';
 import { Radio, ListMusic, Search, History, Settings as SettingsIcon, Download, Disc, Mic } from 'lucide-react';
 
 const themes = {
-  gold: {
-    bg: 'bg-[#060401]',
-    surface: 'bg-[#120B05]',
-    border: 'border-[#D4A017]',
-    accentColor: '#D4A017',
-    textColor: '#F5E6C8',
-    text: 'text-[#F5E6C8]',
-    muted: 'text-[#A89060]',
-    glow: '#FFD166',
-    borderClass: 'border-[#D4A017]',
-    borderBg: 'border-[#060401]',
-    bgColor: '#060401',
-    surfaceColor: '#120B05'
+  gold: { // Wood & Honey (70s Walnut High Fidelity)
+    bg: 'bg-[#120A03]',
+    surface: 'bg-[#291809]',
+    border: 'border-[#F4B03F]',
+    accentColor: '#F4B03F',
+    textColor: '#FFF4E0',
+    text: 'text-[#FFF4E0]',
+    muted: 'text-[#B58A55]',
+    glow: '#FFCB74',
+    borderClass: 'border-[#F4B03F]',
+    borderBg: 'border-[#120A03]',
+    bgColor: '#120A03',
+    surfaceColor: '#291809'
   },
-  midnight: {
-    bg: 'bg-[#03040A]',
-    surface: 'bg-[#090C1A]',
-    border: 'border-[#3B82F6]',
-    accentColor: '#3B82F6',
-    textColor: '#BAC7F5',
-    text: 'text-[#BAC7F5]',
-    muted: 'text-[#63709F]',
-    glow: '#60A5FA',
-    borderClass: 'border-[#3B82F6]',
-    borderBg: 'border-[#03040A]',
-    bgColor: '#03040A',
-    surfaceColor: '#090C1A'
+  midnight: { // Cosmic Vinyl (Plum Indigo Groove)
+    bg: 'bg-[#070310]',
+    surface: 'bg-[#190C29]',
+    border: 'border-[#00E5D7]',
+    accentColor: '#00E5D7',
+    textColor: '#EADDF8',
+    text: 'text-[#EADDF8]',
+    muted: 'text-[#7B538E]',
+    glow: '#6CF2EA',
+    borderClass: 'border-[#00E5D7]',
+    borderBg: 'border-[#070310]',
+    bgColor: '#070310',
+    surfaceColor: '#190C29'
   },
-  forest: {
-    bg: 'bg-[#010602]',
-    surface: 'bg-[#061208]',
-    border: 'border-[#22C55E]',
-    accentColor: '#22C55E',
-    textColor: '#A7E8B4',
-    text: 'text-[#A7E8B4]',
-    muted: 'text-[#5D8D67]',
-    glow: '#4ADE80',
-    borderClass: 'border-[#22C55E]',
-    borderBg: 'border-[#010602]',
-    bgColor: '#010602',
-    surfaceColor: '#061208'
+  forest: { // Avocado Velvet (Lounge Olive)
+    bg: 'bg-[#0A100B]',
+    surface: 'bg-[#18261A]',
+    border: 'border-[#AACC4E]',
+    accentColor: '#AACC4E',
+    textColor: '#E6ECE7',
+    text: 'text-[#E6ECE7]',
+    muted: 'text-[#6C8466]',
+    glow: '#C0EB6A',
+    borderClass: 'border-[#AACC4E]',
+    borderBg: 'border-[#0A100B]',
+    bgColor: '#0A100B',
+    surfaceColor: '#18261A'
   },
-  rose: {
-    bg: 'bg-[#080204]',
-    surface: 'bg-[#140509]',
-    border: 'border-[#EC4899]',
-    accentColor: '#EC4899',
-    textColor: '#FBCFE8',
-    text: 'text-[#FBCFE8]',
-    muted: 'text-[#9D6073]',
-    glow: '#F472B6',
-    borderClass: 'border-[#EC4899]',
-    borderBg: 'border-[#080204]',
-    bgColor: '#080204',
-    surfaceColor: '#140509'
+  rose: { // Terracotta Sunset (Solar Hearth)
+    bg: 'bg-[#190602]',
+    surface: 'bg-[#381106]',
+    border: 'border-[#FF5625]',
+    accentColor: '#FF5625',
+    textColor: '#FCEBE6',
+    text: 'text-[#FCEBE6]',
+    muted: 'text-[#A25D4A]',
+    glow: '#FF8A65',
+    borderClass: 'border-[#FF5625]',
+    borderBg: 'border-[#190602]',
+    bgColor: '#190602',
+    surfaceColor: '#381106'
   }
 };
 
@@ -361,8 +361,12 @@ export default function App() {
 
       {/* CENTRAL CORE VIEW-SCREEN FRAME */}
       <div 
-        className="flex-1 w-full max-w-[460px] mx-auto px-4 z-10 mb-8 relative bg-black/40 p-4 border-l border-r"
-        style={{ borderColor: `${themeStyle.accentColor}30` }}
+        className="flex-1 w-full max-w-[460px] mx-auto px-4 z-10 mb-8 relative p-4 border-4"
+        style={{ 
+          borderColor: themeStyle.accentColor,
+          backgroundColor: `${themeStyle.surfaceColor}F2`, // Slightly translucent surface color
+          boxShadow: `inset 0 0 24px rgba(0,0,0,0.85), 5px 5px 0px #000, 10px 10px 30px rgba(0,0,0,0.6)`
+        }}
         id="chassis-cabinet-body"
       >
         {/* Physical ventilation speaker grates on details sides */}
