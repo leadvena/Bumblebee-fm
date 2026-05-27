@@ -29,6 +29,12 @@ export default function useAudio() {
 
   const playerRef = useRef<any>(null);
   const progressTimerRef = useRef<number | null>(null);
+  const handleTrackEndedRef = useRef<() => void>(() => {});
+
+  // Keep track-ended callback fresh inside player events
+  useEffect(() => {
+    handleTrackEndedRef.current = handleTrackEnded;
+  });
 
   // 1. Initialise localStorage History
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function useAudio() {
                 setIsLoading(true);
               } else if (state === 0) { // Ended (Play next in queue!)
                 setIsPlaying(false);
-                handleTrackEnded();
+                handleTrackEndedRef.current();
               }
             }
           }

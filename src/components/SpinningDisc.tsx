@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Play, Pause } from 'lucide-react';
 
 interface SpinningDiscProps {
@@ -96,24 +96,30 @@ export default function SpinningDisc({
 
             {/* Center Record Label / YouTube Thumbnail Container */}
             <div 
-              className="absolute w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] border-4 flex items-center justify-center overflow-hidden rounded-full"
+              className="absolute w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] border-4 flex items-center justify-center overflow-hidden rounded-full relative"
               style={{
                 borderColor: themeStyle?.bgColor || '#060401',
                 boxShadow: `0 0 0 3px ${accentColor}`,
                 backgroundColor: accentColor
               }}
             >
-              {/* YouTube Album Crop */}
-              <img 
-                src={finalThumbnail} 
-                alt="Record album design" 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover scale-110"
-              />
+              <AnimatePresence mode="popLayout">
+                <motion.img 
+                  key={finalThumbnail || "fallback"}
+                  src={finalThumbnail} 
+                  alt="Record album design" 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover scale-110 absolute inset-0 text-transparent"
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1.1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ duration: 0.7, ease: "easeInOut" }}
+                />
+              </AnimatePresence>
 
               {/* Spindle hole */}
               <div 
-                className="absolute w-4 h-4 border-2 flex items-center justify-center rounded-full" 
+                className="absolute w-4 h-4 border-2 flex items-center justify-center rounded-full z-10" 
                 style={{ 
                   backgroundColor: themeStyle?.bgColor || '#060401',
                   borderColor: accentColor 
@@ -144,7 +150,7 @@ export default function SpinningDisc({
             className="absolute top-4 right-3 origin-top-right w-[4px] h-[90px]"
             style={{ backgroundColor: accentColor }}
             animate={{
-              rotate: isPlaying || hasDetectedWakeWord ? 22 : 2
+              rotate: (isPlaying && !isLoading) || hasDetectedWakeWord ? 22 : 2
             }}
             transition={{ type: "spring", stiffness: 100, damping: 10 }}
           >
@@ -164,26 +170,37 @@ export default function SpinningDisc({
       </div>
 
       {/* TRACK INFORMATION (BELOW DISC) */}
-      <div className="w-full text-center mt-3 max-w-[320px]">
-        {/* Title (Press Start 2P) */}
-        <div className="h-[24px] overflow-hidden flex justify-center items-center">
-          {isMarqueeNeeded ? (
-            <div className="marquee-container text-[11px] sm:text-[12px] font-press-start text-[#FFF8E7] uppercase w-full">
-              <span className="marquee-text inline-block min-w-full">
-                {title} &nbsp; &nbsp; ★ &nbsp; &nbsp; {title}
-              </span>
+      <div className="w-full text-center mt-3 max-w-[320px] min-h-[50px] relative">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={title || 'none'}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="w-full text-center"
+          >
+            {/* Title (Press Start 2P) */}
+            <div className="h-[24px] overflow-hidden flex justify-center items-center">
+              {isMarqueeNeeded ? (
+                <div className="marquee-container text-[11px] sm:text-[12px] font-press-start text-[#FFF8E7] uppercase w-full">
+                  <span className="marquee-text inline-block min-w-full">
+                    {title} &nbsp; &nbsp; ★ &nbsp; &nbsp; {title}
+                  </span>
+                </div>
+              ) : (
+                <h2 className="text-[11px] sm:text-[13px] font-press-start text-[#FFF8E7] tracking-wider truncate uppercase">
+                  {title || 'NO TRACK LOADED'}
+                </h2>
+              )}
             </div>
-          ) : (
-            <h2 className="text-[11px] sm:text-[13px] font-press-start text-[#FFF8E7] tracking-wider truncate uppercase">
-              {title || 'NO TRACK LOADED'}
-            </h2>
-          )}
-        </div>
 
-        {/* Artist (Inter) */}
-        <p className="text-[12px] sm:text-[14px] font-medium text-[#A89060] mt-1.5 truncate">
-          {artist || 'Bumblebee Music Assistant'}
-        </p>
+            {/* Artist (Inter) */}
+            <p className="text-[12px] sm:text-[14px] font-medium text-[#A89060] mt-1.5 truncate">
+              {artist || 'Bumblebee Music Assistant'}
+            </p>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

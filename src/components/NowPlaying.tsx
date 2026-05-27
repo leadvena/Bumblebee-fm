@@ -31,6 +31,8 @@ interface NowPlayingProps {
   onVolumeChange: (newVolume: number) => void;
   onToggleMute: () => void;
   onToggleListening: () => void;
+  vizMode?: 'bars' | 'wave' | 'radial';
+  onVizModeChange?: (mode: 'bars' | 'wave' | 'radial') => void;
 }
 
 export default function NowPlaying({
@@ -54,7 +56,9 @@ export default function NowPlaying({
   onSeek,
   onVolumeChange,
   onToggleMute,
-  onToggleListening
+  onToggleListening,
+  vizMode,
+  onVizModeChange
 }: NowPlayingProps) {
 
   const title = currentTrack ? currentTrack.title : 'NO SONGS LOADING';
@@ -119,6 +123,8 @@ export default function NowPlaying({
         volume={volume}
         themeStyle={themeStyle}
         currentTrackId={currentTrack?.id}
+        vizMode={vizMode}
+        onVizModeChange={onVizModeChange}
       />
 
       {/* TONE CONTROLLER AND VOLUME SECTION */}

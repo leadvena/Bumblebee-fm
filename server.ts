@@ -113,23 +113,31 @@ Supported Commands:
 - 'mood' (user requests sound for a mood - e.g. relaxed, happy, sad, gaming. Extract the music style into 'query' and return command 'play')
 - 'add_to_queue' (user wants to queue a song, extract the track in 'query')
 - 'shuffle' (toggle shuffling)
+- 'change_theme' (switch visual color palette. Find theme in: 'gold' (wood/honey 70s), 'midnight' (cosmic vinyl), 'forest' (avocado velvet), 'rose' (terracotta sunset). Store exact theme key name in 'query')
+- 'set_visualizer_mode' (choose visualizer pattern. Find mode in: 'bars', 'wave', 'radial'. Store exact mode key in 'query')
+- 'set_equalizer' (adjust preset filters. Find one of: 'bass', 'lofi', 'flat', 'treble'. Store exact preset key in 'query')
+- 'buzz_mode' (perform bee sounds/noises, buzz or tell a bee joke)
+- 'self_destruct' (engage playfully scary countdown sequence or overload alarm)
+- 'status_report' (give computer systems status or honey flight measurements)
 - 'unknown' (general chit-chat, greet, or unsupported request)
 
 Example speech outputs:
 - "Buzzing in! Playing some sweet lofi tracks for you."
 - "Skip set! Let's fly onto the next flower in our queue."
-- "Ah, a sweet select! Adding that track to your honey comb queue."`,
+- "Ah, shifting the hive visualizer! Radial Solar Flow online."
+- "Tuning the honeycomb equalizer nodes! Bass boost activated!"
+- "Danger! Overloading honeycomb power reactors... Just kidding, my wings are completely steady!"`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
             command: {
               type: Type.STRING,
-              description: "One of the supported command values: play, skip, previous, volume_up, volume_down, pause, whats_playing, mood, add_to_queue, shuffle, unknown"
+              description: "One of: play, skip, previous, volume_up, volume_down, pause, whats_playing, mood, add_to_queue, shuffle, change_theme, set_visualizer_mode, set_equalizer, buzz_mode, self_destruct, status_report, unknown"
             },
             query: {
               type: Type.STRING,
-              description: "Extracted search query string for play/queue commands. Leave empty for control commands."
+              description: "Extracted search query string, or specific key for settings commands (e.g. theme names 'gold'|'midnight'|'forest'|'rose', visualizer modes 'bars'|'wave'|'radial', equalizer presets 'bass'|'lofi'|'flat'|'treble')"
             },
             speechResponse: {
               type: Type.STRING,
@@ -318,6 +326,57 @@ function parseCommandDemoFallback(transcript: string) {
   } else if (text.includes("shuffle")) {
     command = "shuffle";
     speechResponse = "Stirring the honeycomb! Playlist shuffled.";
+  } else if (text.includes("theme") || text.includes("palette") || text.includes("color") || text.includes("display")) {
+    command = "change_theme";
+    if (text.includes("midnight") || text.includes("cosmic") || text.includes("indigo") || text.includes("purple")) {
+      query = "midnight";
+      speechResponse = "Shifting into Midnight mode! Cosmic vinyl grooves spinning.";
+    } else if (text.includes("forest") || text.includes("avocado") || text.includes("green") || text.includes("olive")) {
+      query = "forest";
+      speechResponse = "Buzzing into Forest mode! Feel the fresh avocado velvet ambience.";
+    } else if (text.includes("rose") || text.includes("sunset") || text.includes("terracotta") || text.includes("orange") || text.includes("red")) {
+      query = "rose";
+      speechResponse = "Sunset vibe activated! Shifting to Rose terracotta warmth.";
+    } else {
+      query = "gold";
+      speechResponse = "Reverting to classic Gold! Wood, honey, and high-fidelity active.";
+    }
+  } else if (text.includes("visualizer") || text.includes("oscilloscope") || text.includes("wave") || text.includes("bars") || text.includes("radial") || text.includes("flow")) {
+    command = "set_visualizer_mode";
+    if (text.includes("wave") || text.includes("oscilloscope") || text.includes("line")) {
+      query = "wave";
+      speechResponse = "Tuning scope to Wave mode! Dynamic line oscillations active.";
+    } else if (text.includes("radial") || text.includes("flow") || text.includes("circle")) {
+      query = "radial";
+      speechResponse = "Spinning Solar Flow visualizer! Radial particle pulses online.";
+    } else {
+      query = "bars";
+      speechResponse = "Switching to classic Spectrum Bars grid!";
+    }
+  } else if (text.includes("equalizer") || text.includes("bass") || text.includes("lofi") || text.includes("filter") || text.includes("sound")) {
+    command = "set_equalizer";
+    if (text.includes("bass") || text.includes("booster") || text.includes("punchy")) {
+      query = "bass";
+      speechResponse = "Equalizer set: Bass! Honey subwoofer nodes boosted.";
+    } else if (text.includes("lofi") || text.includes("slow") || text.includes("chill")) {
+      query = "lofi";
+      speechResponse = "Equalizer set: Lofi! Warm, retro analogue tape filters active.";
+    } else if (text.includes("treble") || text.includes("high") || text.includes("crisp")) {
+      query = "treble";
+      speechResponse = "Equalizer set: Treble! Clear high frequencies enabled.";
+    } else {
+      query = "flat";
+      speechResponse = "Equalizer set: Flat! Pure monitor sound waves output.";
+    }
+  } else if (text.includes("buzz") || text.includes("joke") || text.includes("sound") || text.includes("melody") || text.includes("hum")) {
+    command = "buzz_mode";
+    speechResponse = "Buzz buzz, click-clack! Let me hum you a little chiptune sequence.";
+  } else if (text.includes("destruct") || text.includes("critical") || text.includes("explode") || text.includes("blow up")) {
+    command = "self_destruct";
+    speechResponse = "EMERGENCY! Self-destruct sequence engaged. Radioactive honeycomb melting down!";
+  } else if (text.includes("status") || text.includes("system") || text.includes("cpu") || text.includes("feeling") || text.includes("diagnose")) {
+    command = "status_report";
+    speechResponse = "Accessing Bee-OS kernel telemetry! Core temperature: nominal. Honeycomb reserves: 98%. Wings lubrication: perfect.";
   } else if (text.includes("hello") || text.includes("hey") || text.includes("bumblebee")) {
     speechResponse = "Hello there! I'm Bumblebee, your pixel music companion. Buzz buzz!";
   }

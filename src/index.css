@@ -148,6 +148,25 @@ body {
   95% { transform: scaleY(0.1); }
 }
 
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-3px, -1.5px); }
+  20%, 40%, 60%, 80% { transform: translate(3px, 1.5px); }
+}
+
+@keyframes alarm-blink {
+  0%, 100% { background-color: rgba(239, 68, 68, 0); }
+  50% { background-color: rgba(239, 68, 68, 0.2); }
+}
+
+.animate-shake {
+  animation: shake 0.25s infinite ease-in-out;
+}
+
+.animate-alarm-blink {
+  animation: alarm-blink 0.5s infinite ease-in-out;
+}
+
 /* Drag list styles */
 .drag-item {
   user-select: none;

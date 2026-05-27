@@ -1,7 +1,24 @@
 import { Track } from "../types";
 
 export interface CommandParsedResult {
-  command: 'play' | 'skip' | 'previous' | 'volume_up' | 'volume_down' | 'pause' | 'whats_playing' | 'mood' | 'add_to_queue' | 'shuffle' | 'unknown';
+  command: 
+    | 'play' 
+    | 'skip' 
+    | 'previous' 
+    | 'volume_up' 
+    | 'volume_down' 
+    | 'pause' 
+    | 'whats_playing' 
+    | 'mood' 
+    | 'add_to_queue' 
+    | 'shuffle' 
+    | 'change_theme'
+    | 'set_visualizer_mode'
+    | 'set_equalizer'
+    | 'buzz_mode'
+    | 'self_destruct'
+    | 'status_report'
+    | 'unknown';
   query: string;
   speechResponse: string;
 }
@@ -150,6 +167,80 @@ function getLocalCommandFallback(transcript: string): CommandParsedResult {
       command: 'shuffle',
       query: '',
       speechResponse: "Re-sorting the honeycomb cells. Shuffle enabled!"
+    };
+  }
+
+  if (text.includes("theme") || text.includes("palette") || text.includes("display") || text.includes("color")) {
+    let mode = 'gold';
+    let label = 'classic Gold';
+    if (text.includes("midnight") || text.includes("cosmic") || text.includes("purple") || text.includes("indigo")) {
+      mode = 'midnight';
+      label = 'Cosmic Midnight';
+    } else if (text.includes("forest") || text.includes("green") || text.includes("avocado") || text.includes("olive")) {
+      mode = 'forest';
+      label = 'Olive Forest';
+    } else if (text.includes("rose") || text.includes("terracotta") || text.includes("sunset") || text.includes("orange")) {
+      mode = 'rose';
+      label = 'Sunset Rose';
+    }
+    return {
+      command: 'change_theme',
+      query: mode,
+      speechResponse: `Buzzing visual spectrums! Switching display palette to ${label}.`
+    };
+  }
+
+  if (text.includes("visualizer") || text.includes("oscilloscope") || text.includes("wave") || text.includes("bars") || text.includes("radial") || text.includes("flow")) {
+    let mode = 'bars';
+    if (text.includes("wave") || text.includes("oscilloscope")) {
+      mode = 'wave';
+    } else if (text.includes("radial") || text.includes("flow")) {
+      mode = 'radial';
+    }
+    return {
+      command: 'set_visualizer_mode',
+      query: mode,
+      speechResponse: `Adjusting dynamic spectrum visualization to ${mode} mode!`
+    };
+  }
+
+  if (text.includes("equalizer") || text.includes("bass") || text.includes("lofi") || text.includes("filter") || text.includes("sound")) {
+    let eq = 'flat';
+    if (text.includes("bass") || text.includes("boost") || text.includes("punchy")) {
+      eq = 'bass';
+    } else if (text.includes("lofi") || text.includes("chill") || text.includes("analogue")) {
+      eq = 'lofi';
+    } else if (text.includes("treble") || text.includes("high") || text.includes("crisp")) {
+      eq = 'treble';
+    }
+    return {
+      command: 'set_equalizer',
+      query: eq,
+      speechResponse: `Tuning honeycomb audio filters to matches ${eq} profile!`
+    };
+  }
+
+  if (text.includes("buzz") || text.includes("joke") || text.includes("sound") || text.includes("melody") || text.includes("hum")) {
+    return {
+      command: 'buzz_mode',
+      query: '',
+      speechResponse: "Buzz buzz! Initiating 16-bit cybernetic bumble melodies."
+    };
+  }
+
+  if (text.includes("destruct") || text.includes("critical") || text.includes("blow up") || text.includes("bomb")) {
+    return {
+      command: 'self_destruct',
+      query: '',
+      speechResponse: "ALERT! Initiating self-destruct meltdown sequence! High-vibration swarm overdrive!"
+    };
+  }
+
+  if (text.includes("status") || text.includes("system") || text.includes("cpu") || text.includes("feeling") || text.includes("diagnose")) {
+    return {
+      command: 'status_report',
+      query: '',
+      speechResponse: "Bee-OS system report loaded. All solar wings humming nicely! Core temp: warm honey."
     };
   }
 

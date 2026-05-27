@@ -6,6 +6,7 @@ import usePWA from './hooks/usePWA';
 import { parseVoiceCommand, getRecommendations } from './utils/geminiApi';
 import { searchYouTube } from './utils/youtubeApi';
 import { Track, ScreenType } from './types';
+import { playBumblebeeSynthSound } from './utils/audioSynth';
 
 // Screen imports
 import NowPlaying from './components/NowPlaying';
@@ -84,6 +85,10 @@ export default function App() {
   const [wakeWordEnabled, setWakeWordEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
 
+  // Expanded visualization & interactive immersion mode states
+  const [vizMode, setVizMode] = useState<'bars' | 'wave' | 'radial'>('bars');
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
+
   // States guiding reactive bee character actions
   const [hasDetectedWakeWord, setHasDetectedWakeWord] = useState(false);
 
@@ -153,6 +158,37 @@ export default function App() {
       case 'shuffle':
         audio.toggleShuffle();
         break;
+      case 'change_theme':
+        if (query === 'gold' || query === 'midnight' || query === 'forest' || query === 'rose') {
+          setTheme(query);
+          playBumblebeeSynthSound('chime');
+        }
+        break;
+      case 'set_visualizer_mode':
+        if (query === 'bars' || query === 'wave' || query === 'radial') {
+          setVizMode(query);
+          playBumblebeeSynthSound('happy');
+        }
+        break;
+      case 'set_equalizer':
+        if (query === 'bass' || query === 'lofi' || query === 'flat' || query === 'treble') {
+          audio.setEqualizer(query);
+          playBumblebeeSynthSound('chime');
+        }
+        break;
+      case 'buzz_mode':
+        playBumblebeeSynthSound('melody');
+        break;
+      case 'self_destruct':
+        setIsAlarmActive(true);
+        playBumblebeeSynthSound('alarm');
+        setTimeout(() => {
+          setIsAlarmActive(false);
+        }, 3200);
+        break;
+      case 'status_report':
+        playBumblebeeSynthSound('chime');
+        break;
       case 'add_to_queue':
         if (query) {
           try {
@@ -172,7 +208,7 @@ export default function App() {
         console.warn("Bumblebee: Noted general query");
         break;
     }
-  }, [audio, setSearchQuery, setSearchResults, setIsSearchLoading]);
+  }, [audio, setSearchQuery, setSearchResults, setIsSearchLoading, setTheme, setVizMode, setIsAlarmActive]);
 
   // Voice transcript receiver callback
   const handleTranscriptReady = useCallback(async (transcript: string) => {
@@ -269,7 +305,12 @@ export default function App() {
   }, [audio]);
 
   return (
-    <div className={`min-h-screen ${themeStyle.bg} pb-24 overflow-x-hidden flex flex-col relative font-sans`}>
+    <div className={`min-h-screen ${themeStyle.bg} pb-24 overflow-x-hidden flex flex-col relative font-sans ${isAlarmActive ? 'animate-shake' : ''}`}>
+      
+      {/* RED ALERT FLASH OVERLAY */}
+      {isAlarmActive && (
+        <div className="fixed inset-0 z-[100] pointer-events-none animate-alarm-blink" />
+      )}
       
       {/* GLOBAL ALWAYS-LISTENING MIC INDICATOR */}
       {wakeWord.isReady && (
@@ -419,6 +460,8 @@ export default function App() {
             onVolumeChange={audio.setVolume}
             onToggleMute={audio.toggleMute}
             onToggleListening={voice.toggleListening}
+            vizMode={vizMode}
+            onVizModeChange={setVizMode}
           />
         )}
 

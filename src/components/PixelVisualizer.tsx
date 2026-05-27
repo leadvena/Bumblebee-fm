@@ -8,6 +8,8 @@ interface PixelVisualizerProps {
   volume: number;
   themeStyle: any;
   currentTrackId?: string | null;
+  vizMode?: 'bars' | 'wave' | 'radial';
+  onVizModeChange?: (mode: 'bars' | 'wave' | 'radial') => void;
 }
 
 export default function PixelVisualizer({
@@ -16,9 +18,21 @@ export default function PixelVisualizer({
   isListening,
   volume,
   themeStyle,
-  currentTrackId
+  currentTrackId,
+  vizMode: propVizMode,
+  onVizModeChange
 }: PixelVisualizerProps) {
-  const [vizMode, setVizMode] = useState<'bars' | 'wave' | 'radial'>('bars');
+  const [localVizMode, setLocalVizMode] = useState<'bars' | 'wave' | 'radial'>('bars');
+  
+  const vizMode = propVizMode !== undefined ? propVizMode : localVizMode;
+  const setVizMode = (mode: 'bars' | 'wave' | 'radial') => {
+    if (onVizModeChange) {
+      onVizModeChange(mode);
+    } else {
+      setLocalVizMode(mode);
+    }
+  };
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const requestRef = useRef<number | null>(null);
   
