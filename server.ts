@@ -245,12 +245,17 @@ async function start() {
     console.log("Bumblebee: Running in PRODUCTION mode serving static dist/ folder.");
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Bumblebee is running and waiting for commands on port ${PORT}`);
-  });
+  // Only listen on port if not running inside a Vercel Serverless Function
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Bumblebee is running and waiting for commands on port ${PORT}`);
+    });
+  }
 }
 
 start();
+
+export default app; // Export app for Vercel Serverless Function support
 
 // ─── CONTINGENCY IMPLEMENTATIONS ──────────────────────────────────────
 

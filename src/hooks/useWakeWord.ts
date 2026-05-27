@@ -18,6 +18,12 @@ export default function useWakeWord({
 
   const recognitionRef = useRef<any>(null);
 
+  // Keep a ref of the latest callback to prevent re-initializing continuous listening on callback changes
+  const onWakeWordDetectedRef = useRef(onWakeWordDetected);
+  useEffect(() => {
+    onWakeWordDetectedRef.current = onWakeWordDetected;
+  }, [onWakeWordDetected]);
+
   // Check simple iOS detection to set support flags or tooltips
   const isIOS = typeof window !== 'undefined' && 
     (/iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -102,7 +108,7 @@ export default function useWakeWord({
               } catch (e) {}
               
               setIsReady(false);
-              onWakeWordDetected();
+              onWakeWordDetectedRef.current();
               break;
             }
           }
@@ -171,7 +177,7 @@ export default function useWakeWord({
         console.log("Bumblebee: Stopped continuous wake-word session.");
       }
     };
-  }, [onWakeWordDetected, wakeWordEnabled, voiceActive, isIOS]);
+  }, [wakeWordEnabled, voiceActive, isIOS]);
 
   return {
     isReady,

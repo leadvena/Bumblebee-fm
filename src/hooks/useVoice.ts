@@ -18,6 +18,12 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
   const [statusText, setStatusText] = useState('Standby');
   const recognitionRef = useRef<any>(null);
 
+  // Keep a ref of the latest callback to prevent re-initializing recognition on callback change
+  const onTranscriptReadyRef = useRef(onTranscriptReady);
+  useEffect(() => {
+    onTranscriptReadyRef.current = onTranscriptReady;
+  }, [onTranscriptReady]);
+
   // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -57,12 +63,12 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
         const transcript = results[0][0].transcript;
         console.log("Bumblebee: Registered transcript:", transcript);
         setStatusText(`"${transcript}"`);
-        onTranscriptReady(transcript);
+        onTranscriptReadyRef.current(transcript);
       }
     };
 
     recognitionRef.current = rec;
-  }, [onTranscriptReady]);
+  }, []);
 
   // Command to trigger recording
   const startListening = useCallback(() => {
