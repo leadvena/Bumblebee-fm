@@ -241,6 +241,12 @@ export default function App() {
     voiceRef.current = voice;
   }, [voice]);
 
+  // Synchronize volume ducking dynamically when voice elements or triggers are active
+  useEffect(() => {
+    const isBumblebeeActive = !!(voice.isListening || voice.isSpeaking || hasDetectedWakeWord);
+    audio.setIsDucked(isBumblebeeActive);
+  }, [voice.isListening, voice.isSpeaking, hasDetectedWakeWord, audio.setIsDucked]);
+
   // Wake word triggers
   const handleWakeWordDetected = useCallback(() => {
     setHasDetectedWakeWord(true);

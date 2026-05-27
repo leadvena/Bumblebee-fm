@@ -15,6 +15,7 @@ export default function useAudio() {
   const [isLoading, setIsLoading] = useState(false);
   const [volume, setVolume] = useState(70);
   const [isMuted, setIsMuted] = useState(false);
+  const [isDucked, setIsDucked] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -172,6 +173,23 @@ export default function useAudio() {
       }
     };
   }, [isPlaying, duration]);
+
+
+  // Integrated Dynamic Audio Ducking controller
+  useEffect(() => {
+    if (!playerRef.current || typeof playerRef.current.setVolume !== 'function') return;
+
+    if (isDucked) {
+      // Duck to 15% of current volume, or a minimum low level like 12 (unless muted entirely)
+      const targetVolume = isMuted ? 0 : Math.max(12, Math.floor(volume * 0.15));
+      playerRef.current.setVolume(targetVolume);
+      console.log(`Bumblebee Engine: Ducking audio stream to ${targetVolume}% (User level is ${volume}%)`);
+    } else {
+      // Restore player volume to the user's setting
+      playerRef.current.setVolume(isMuted ? 0 : volume);
+      console.log(`Bumblebee Engine: Restoring audio stream to setting ${volume}%`);
+    }
+  }, [isDucked, volume, isMuted]);
 
 
   // Play specific song
@@ -346,6 +364,8 @@ export default function useAudio() {
     isLoading,
     volume,
     isMuted,
+    isDucked,
+    setIsDucked,
     currentTime,
     duration,
     currentTrack,

@@ -36,7 +36,7 @@ export default function PixelVisualizer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const requestRef = useRef<number | null>(null);
   
-  // Web Audio state references for microphone inputs
+  // Web Audio state references for microphone inputs (disabled to prevent SpeechRecognition locks)
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -46,68 +46,15 @@ export default function PixelVisualizer({
   const peakHolds = useRef<number[]>(new Array(16).fill(0));
   const peakDecayCount = useRef<number[]>(new Array(16).fill(0));
 
-  // 1. Manage microphone analyser lifecycle
+  // 1. Manage microphone analyser lifecycle (disabled to prioritize SpeechRecognition)
   useEffect(() => {
-    let active = true;
-
-    async function setupMicrophone() {
-      if (!isListening) {
-        cleanupMic();
-        return;
-      }
-
-      try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          console.warn("Bumblebee: MediaDevices API not supported.");
-          return;
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        if (!active) {
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
-
-        micStreamRef.current = stream;
-
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioContextClass();
-        audioContextRef.current = ctx;
-
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 64; // Small fftSize to make chunky retro items
-        
-        source.connect(analyser);
-        analyserRef.current = analyser;
-
-        const bufferLength = analyser.frequencyBinCount;
-        dataArrayRef.current = new Uint8Array(bufferLength);
-        console.log("Bumblebee: Microphone Analyser connected successfully.");
-      } catch (err) {
-        console.warn("Bumblebee Audio Visualizer mic stream failed: ", err);
-      }
-    }
-
-    setupMicrophone();
-
-    return () => {
-      active = false;
-      cleanupMic();
-    };
+    // Microphone capture is deactivated here to prevent audio input channel collisions in Chrome/Safari
+    // with continuous SpeechRecognition. Speech is animated procedurally.
+    return () => {};
   }, [isListening]);
 
   function cleanupMic() {
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach(track => track.stop());
-      micStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    analyserRef.current = null;
-    dataArrayRef.current = null;
+    // No-op fallback
   }
 
   // 2. Continuous procedural or microphone canvas render loop
@@ -146,19 +93,27 @@ export default function PixelVisualizer({
       let frequencies: number[] = [];
       const barCount = 16;
 
-      if (isListening && analyserRef.current && dataArrayRef.current) {
-        // Mode A: True Microphone inputs
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        const micData = dataArrayRef.current;
-        const sliceLength = Math.floor(micData.length / barCount);
-        
+      if (isListening) {
+        // Mode A: Procedural energetic human speech frequency wave (avoids mic contention)
+        const time = performance.now();
         for (let i = 0; i < barCount; i++) {
-          let sum = 0;
-          const start = i * sliceLength;
-          for (let k = 0; k < sliceLength; k++) {
-            sum += micData[start + k] || 0;
+          // Speak frequencies tend to be concentrated in the midrange channels (i between 3 and 10)
+          const vowelOsc = Math.sin(time * 0.015 + i * 0.75) * Math.cos(time * 0.007 - i * 0.4);
+          const consonantsOsc = Math.sin(time * 0.038 - i * 1.5) * 0.45;
+          const noise = (Math.sin(time * 0.12 + i * 2) * 0.2 + 0.3) * (Math.random() * 0.18 + 0.82);
+          
+          // Syllabic phrase cadence blocks
+          const wordCadence = Math.sin(time * 0.0035 + Math.cos(time * 0.0008)) > -0.25 ? 1.0 : 0.08;
+          
+          let amplitude = (0.25 + Math.abs(vowelOsc + consonantsOsc + noise) * 0.75) * 190 * wordCadence;
+          
+          // Accentuate and filter frequencies matching speech spectrum peaks
+          if (i >= 3 && i <= 10) {
+            amplitude *= 1.35;
+          } else {
+            amplitude *= 0.5;
           }
-          frequencies.push(sum / sliceLength);
+          frequencies.push(Math.min(255, Math.max(10, amplitude)));
         }
       } else if (isPlaying) {
         // Mode B: High quality synchronized procedural audio synthesis

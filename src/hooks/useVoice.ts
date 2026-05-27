@@ -39,6 +39,7 @@ interface UseVoiceOptions {
 
 export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOptions) {
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [statusText, setStatusText] = useState('Standby');
   const recognitionRef = useRef<any>(null);
   const latestTranscriptRef = useRef('');
@@ -290,6 +291,7 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     if (window.__bumblebeeSpeechCore) {
       window.__bumblebeeSpeechCore.isSpeaking = true;
     }
+    setIsSpeaking(true);
 
     const utterance = new SpeechSynthesisUtterance(text);
     
@@ -312,6 +314,7 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isSpeaking = true;
       }
+      setIsSpeaking(true);
     };
 
     // Keep safe tracking of completion to release global speaking locks
@@ -324,6 +327,7 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isSpeaking = false;
       }
+      setIsSpeaking(false);
       if (onEnd) {
         onEnd();
       }
@@ -349,6 +353,7 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
   return {
     isListening,
+    isSpeaking,
     statusText,
     setStatusText,
     startListening,
