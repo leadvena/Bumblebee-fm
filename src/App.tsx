@@ -194,13 +194,12 @@ export default function App() {
   // Wake word triggers
   const handleWakeWordDetected = useCallback(() => {
     setHasDetectedWakeWord(true);
-    voiceRef.current?.speak("Buzzing in! I'm listening.");
     
-    // Automatically trigger audio recording window after speaking greeting
-    setTimeout(() => {
+    // Automatically trigger audio recording window after speaking greeting is finished
+    voiceRef.current?.speak("Buzzing in! I'm listening.", () => {
       voiceRef.current?.startListening();
       setHasDetectedWakeWord(false);
-    }, 1800);
+    });
   }, []);
 
   const wakeWord = useWakeWord({
@@ -448,6 +447,7 @@ export default function App() {
             voiceEnabled={voiceEnabled}
             onVoiceToggle={() => setVoiceEnabled(prev => !prev)}
             wakeWordStatus={wakeWord.status}
+            lastTranscriptChunk={wakeWord.lastTranscriptChunk}
             themeStyle={themeStyle}
           />
         )}

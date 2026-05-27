@@ -15,6 +15,7 @@ if (typeof window !== 'undefined') {
     activeWakeWordRec: null,
     activeVoiceRec: null,
     isVoiceListening: false,
+    isSpeaking: false,
     stopWakeWord: () => {
       const core = window.__bumblebeeSpeechCore;
       if (core && core.activeWakeWordRec) {
@@ -66,6 +67,9 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     rec.onstart = () => {
       setIsListening(true);
+      if (window.__bumblebeeSpeechCore) {
+        window.__bumblebeeSpeechCore.isVoiceListening = true;
+      }
       setStatusText('Listening...');
       console.log("Bumblebee: Voice recording started...");
     };
@@ -73,6 +77,9 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     rec.onerror = (event: any) => {
       console.error('Bumblebee: Speech recognition error', event);
       setIsListening(false);
+      if (window.__bumblebeeSpeechCore) {
+        window.__bumblebeeSpeechCore.isVoiceListening = false;
+      }
       if (event.error === 'not-allowed') {
         setStatusText('Permission denied. Please enable mic access.');
       } else if (event.error === 'aborted') {
@@ -84,6 +91,9 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     rec.onend = () => {
       setIsListening(false);
+      if (window.__bumblebeeSpeechCore) {
+        window.__bumblebeeSpeechCore.isVoiceListening = false;
+      }
       // Soft clean: only reset to Standby if still looking like active listening
       setStatusText(prev => prev === 'Listening...' ? 'Standby' : prev);
     };
@@ -94,6 +104,16 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
         const transcript = results[0][0].transcript;
         console.log("Bumblebee: Registered transcript:", transcript);
         setStatusText(`"${transcript}"`);
+        
+        // Stop listing immediately so the user's mic closes immediately!
+        try {
+          rec.stop();
+        } catch (e) {}
+        setIsListening(false);
+        if (window.__bumblebeeSpeechCore) {
+          window.__bumblebeeSpeechCore.isVoiceListening = false;
+        }
+
         onTranscriptReadyRef.current(transcript);
       }
     };
@@ -108,25 +128,49 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       return;
     }
 
-    // Abort continuous wake-word detector synchronously to free mic line
-    if (window.__bumblebeeSpeechCore && typeof window.__bumblebeeSpeechCore.stopWakeWord === 'function') {
-      window.__bumblebeeSpeechCore.stopWakeWord();
-    }
-
-    // Cancel the synth if speaking, then start recording
+    // Cancel any current speech synthesis first
     try {
       window.speechSynthesis.cancel();
-      setIsListening(true);
-      setStatusText('Listening...');
-      recognitionRef.current.start();
-    } catch (e) {
-      console.warn("Speech Recognition re-entry block", e);
+    } catch (e) {}
+
+    // Synchronously claim transcription lock in global core
+    if (window.__bumblebeeSpeechCore) {
+      window.__bumblebeeSpeechCore.isVoiceListening = true;
+      // Abort continuous wake-word detector synchronously to free mic line
+      if (typeof window.__bumblebeeSpeechCore.stopWakeWord === 'function') {
+        window.__bumblebeeSpeechCore.stopWakeWord();
+      }
     }
+
+    setIsListening(true);
+    setStatusText('Listening...');
+
+    // Add a safe 250ms delay to give browser mic layers time to cleanly disengage the wake-word listener
+    setTimeout(() => {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.warn("Speech Recognition collision/start issue, reclaiming session:", e);
+        try {
+          recognitionRef.current.abort();
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              console.error("Speech Recognition restart failed:", err);
+            }
+          }, 200);
+        } catch (abortErr) {}
+      }
+    }, 250);
   }, []);
 
   const stopListening = useCallback(() => {
     setIsListening(false);
     setStatusText('Processing command...');
+    if (window.__bumblebeeSpeechCore) {
+      window.__bumblebeeSpeechCore.isVoiceListening = false;
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop(); // Stops capture but lets onresult handle remaining buffers
@@ -147,14 +191,20 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
   }, [isListening, startListening, stopListening]);
 
   // BUMBLEBEE Voice synthesis SPEAK BACK helper
-  const speak = useCallback((text: string) => {
+  const speak = useCallback((text: string, onEnd?: () => void) => {
     if (!voiceEnabled) {
       console.log(`Bumblebee muted speak: "${text}"`);
+      if (onEnd) onEnd();
       return;
     }
 
     // Cancel any active utterance
     window.speechSynthesis.cancel();
+
+    // Mark system speaking immediately in global core
+    if (window.__bumblebeeSpeechCore) {
+      window.__bumblebeeSpeechCore.isSpeaking = true;
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
     
@@ -172,6 +222,24 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     if (chosenVoice) {
       utterance.voice = chosenVoice;
     }
+
+    utterance.onstart = () => {
+      if (window.__bumblebeeSpeechCore) {
+        window.__bumblebeeSpeechCore.isSpeaking = true;
+      }
+    };
+
+    const handleSpeakComplete = () => {
+      if (window.__bumblebeeSpeechCore) {
+        window.__bumblebeeSpeechCore.isSpeaking = false;
+      }
+      if (onEnd) {
+        onEnd();
+      }
+    };
+
+    utterance.onend = handleSpeakComplete;
+    utterance.onerror = handleSpeakComplete;
 
     window.speechSynthesis.speak(utterance);
     setStatusText(`Bumblebee: "${text}"`);

@@ -15,6 +15,7 @@ export default function useWakeWord({
   const [isSupported, setIsSupported] = useState(true);
   const [status, setStatus] = useState<'initializing' | 'ready' | 'error' | 'unsupported' | 'disabled'>('initializing');
   const [errorMessage, setErrorMessage] = useState('');
+  const [lastTranscriptChunk, setLastTranscriptChunk] = useState('');
 
   const recognitionRef = useRef<any>(null);
 
@@ -76,9 +77,9 @@ export default function useWakeWord({
     function initContinuousRecognition(isRestart = false) {
       if (!active) return;
       
-      // If we are currently giving a manual voice button command, do not start wake-word detector 
-      if (window.__bumblebeeSpeechCore?.isVoiceListening) {
-        console.log("Bumblebee SpeechCore: Postponing wake-word initialization because manual voice mode is active.");
+      // If we are currently giving a manual voice button command or speaking, do not start wake-word detector 
+      if (window.__bumblebeeSpeechCore?.isVoiceListening || window.__bumblebeeSpeechCore?.isSpeaking) {
+        console.log("Bumblebee SpeechCore: Postponing wake-word initialization because manual voice mode or speaker is active.");
         return;
       }
 
@@ -109,21 +110,23 @@ export default function useWakeWord({
           if (!active) return;
           const results = event.results;
           for (let i = event.resultIndex; i < results.length; i++) {
-            const transcript = results[i][0].transcript.toLowerCase();
+            const transcript = results[i][0].transcript;
             console.log("Bumblebee scanning transcript snippet -> ", transcript);
+            setLastTranscriptChunk(transcript);
             
-            const cleanTxt = transcript.replace(/[\s-]/g, '');
+            const lowerTranscript = transcript.toLowerCase();
+            const cleanTxt = lowerTranscript.replace(/[\s-]/g, '');
             if (
               cleanTxt.includes('bumblebee') || 
-              transcript.includes('bumblebee') || 
-              transcript.includes('bumble bee') || 
-              transcript.includes('bubblebee') || 
-              transcript.includes('bubble bee') || 
-              transcript.includes('bumbleby') || 
-              transcript.includes('bombbee') ||
-              transcript.includes('bumbly') ||
-              transcript.includes('honeybee') ||
-              transcript.includes('honey bee')
+              lowerTranscript.includes('bumblebee') || 
+              lowerTranscript.includes('bumble bee') || 
+              lowerTranscript.includes('bubblebee') || 
+              lowerTranscript.includes('bubble bee') || 
+              lowerTranscript.includes('bumbleby') || 
+              lowerTranscript.includes('bombbee') ||
+              lowerTranscript.includes('bumbly') ||
+              lowerTranscript.includes('honeybee') ||
+              lowerTranscript.includes('honey bee')
             ) {
               console.log("Bumblebee: Wake word matched! Halting continuous scan immediately.");
               
@@ -164,7 +167,9 @@ export default function useWakeWord({
           if (window.__bumblebeeSpeechCore?.activeWakeWordRec === rec) {
             window.__bumblebeeSpeechCore.activeWakeWordRec = null;
           }
-          if (active && wakeWordEnabled && !voiceActive) {
+          const isManualVoiceActive = window.__bumblebeeSpeechCore?.isVoiceListening;
+          const isSysSpeaking = window.__bumblebeeSpeechCore?.isSpeaking;
+          if (active && wakeWordEnabled && !voiceActive && !isManualVoiceActive && !isSysSpeaking) {
             console.log("Bumblebee continuous scan ended. Restarting scanning...");
             restartRec();
           } else {
@@ -192,7 +197,9 @@ export default function useWakeWord({
       } catch (e) {}
       
       setTimeout(() => {
-        if (active && wakeWordEnabled && !voiceActive) {
+        const isManualVoiceActive = window.__bumblebeeSpeechCore?.isVoiceListening;
+        const isSysSpeaking = window.__bumblebeeSpeechCore?.isSpeaking;
+        if (active && wakeWordEnabled && !voiceActive && !isManualVoiceActive && !isSysSpeaking) {
           initContinuousRecognition(true); // Treat as a background hot-restart, retaining 'ready' status
         }
       }, 400);
@@ -220,6 +227,7 @@ export default function useWakeWord({
     isSupported,
     status,
     errorMessage,
-    isIOS
+    isIOS,
+    lastTranscriptChunk
   };
 }

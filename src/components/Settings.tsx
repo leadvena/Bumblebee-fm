@@ -11,6 +11,7 @@ interface SettingsProps {
   voiceEnabled: boolean;
   onVoiceToggle: () => void;
   wakeWordStatus: string;
+  lastTranscriptChunk?: string;
   themeStyle: any;
 }
 
@@ -24,6 +25,7 @@ export default function Settings({
   voiceEnabled,
   onVoiceToggle,
   wakeWordStatus,
+  lastTranscriptChunk = '',
   themeStyle
 }: SettingsProps) {
   const themesList: { id: 'gold' | 'midnight' | 'forest' | 'rose'; name: string; color: string }[] = [
@@ -116,7 +118,7 @@ export default function Settings({
                     className="font-press-start text-[8px] uppercase"
                     style={{ color: '#FAFAFA' }}
                   >
-                    WAKE WORK DETECTOR
+                    WAKE WORD DETECTOR
                   </h4>
                   <p 
                     className="text-[11px] font-sans mt-0.5"
@@ -139,18 +141,28 @@ export default function Settings({
               </div>
               {/* Status display */}
               <div 
-                className="text-[10px] font-mono p-1 border border-dashed mt-1 flex items-center justify-between"
+                className="text-[10px] font-mono p-1 border border-dashed mt-1 flex flex-col gap-1"
                 style={{ borderColor: `${accentColor}30` }}
               >
-                <span style={{ color: textColor }}>ENGINE STATUS:</span>
-                <span className={`uppercase font-bold ${
-                  wakeWordStatus.includes('ready') ? 'text-green-500' : 
-                  wakeWordStatus.includes('initializing') ? 'animate-pulse' : ''
-                }`}
-                style={{ color: wakeWordStatus.includes('initializing') ? accentColor : undefined }}
-                >
-                  {wakeWordStatus}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span style={{ color: textColor }}>ENGINE STATUS:</span>
+                  <span className={`uppercase font-bold ${
+                    wakeWordStatus.includes('ready') ? 'text-green-500' : 
+                    wakeWordStatus.includes('initializing') ? 'animate-pulse' : ''
+                  }`}
+                  style={{ color: wakeWordStatus.includes('initializing') ? accentColor : undefined }}
+                  >
+                    {wakeWordStatus}
+                  </span>
+                </div>
+                {lastTranscriptChunk && (
+                  <div className="flex items-center justify-between border-t border-dashed mt-1 pt-1 opacity-85">
+                    <span style={{ color: textColor }}>LAST INPUT HEARD:</span>
+                    <span className="font-mono text-[9px] text-[#FFD166] select-all truncate max-w-[170px]" title={lastTranscriptChunk}>
+                      "{lastTranscriptChunk}"
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
