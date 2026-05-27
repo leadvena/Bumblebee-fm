@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Track } from '../types';
 import { Trash2, GripVertical, PlaySquare, Music } from 'lucide-react';
+import PlaylistsSection from './PlaylistsSection';
 
 interface QueueProps {
   queue: Track[];
@@ -10,6 +11,8 @@ interface QueueProps {
   onRemove: (trackId: string) => void;
   onReorder: (newQueue: Track[]) => void;
   onPlayTrack: (track: Track) => void;
+  onReplaceQueue: (tracks: Track[]) => void;
+  onAddToQueue: (track: Track) => void;
 }
 
 export default function Queue({
@@ -19,7 +22,9 @@ export default function Queue({
   themeStyle,
   onRemove,
   onReorder,
-  onPlayTrack
+  onPlayTrack,
+  onReplaceQueue,
+  onAddToQueue
 }: QueueProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -163,6 +168,16 @@ export default function Queue({
           </p>
         )}
       </div>
+
+      {/* SAVED HIVE PLAYLIST CAPSULES */}
+      <PlaylistsSection
+        themeStyle={themeStyle}
+        queue={queue}
+        currentTrack={currentTrack}
+        onReplaceQueue={onReplaceQueue}
+        onAddToQueue={onAddToQueue}
+        onPlayTrack={onPlayTrack}
+      />
     </div>
   );
 }

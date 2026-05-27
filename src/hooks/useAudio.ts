@@ -60,18 +60,20 @@ export default function useAudio() {
         playerDiv = document.createElement('div');
         playerDiv.id = 'youtube-iframe-target';
         playerDiv.style.position = 'fixed';
-        playerDiv.style.bottom = '0';
-        playerDiv.style.right = '0';
-        playerDiv.style.opacity = '0.01';
+        playerDiv.style.left = '-10000px'; // Place fully offscreen
+        playerDiv.style.top = '0';
+        playerDiv.style.width = '300px';   // Give it a non-zero, healthy visible dimension
+        playerDiv.style.height = '200px';
+        playerDiv.style.opacity = '1';      // Opacity 1 ensures the browser schedules and triggers its processing smoothly
         playerDiv.style.pointerEvents = 'none';
-        playerDiv.style.zIndex = '-1';
+        playerDiv.style.zIndex = '-9999';
         document.body.appendChild(playerDiv);
       }
 
       try {
         playerRef.current = new window.YT.Player('youtube-iframe-target', {
-          height: '1',
-          width: '1',
+          height: '200',
+          width: '300',
           videoId: 'A7_tXscfU00', // Initialize with a nice retro theme track
           playerVars: {
             playsinline: 1,

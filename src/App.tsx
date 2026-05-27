@@ -379,6 +379,8 @@ export default function App() {
             onRemove={audio.removeFromQueue}
             onReorder={audio.reorderQueue}
             onPlayTrack={handleQueuePlaySelected}
+            onReplaceQueue={audio.reorderQueue}
+            onAddToQueue={audio.addToQueue}
           />
         )}
 
