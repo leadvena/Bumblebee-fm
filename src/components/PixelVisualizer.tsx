@@ -77,6 +77,12 @@ export default function PixelVisualizer({
       if (!ctx || !canvas) return;
       localFrameTime++;
 
+      // While recording or listening, decelerate canvas paint rate to liberate CPU main-thread budget
+      if (isListening && localFrameTime % 5 !== 0) {
+        requestRef.current = requestAnimationFrame(render);
+        return;
+      }
+
       // Background clear with pixel grids spacing
       ctx.fillStyle = '#110D05';
       ctx.fillRect(0, 0, dWidth, dHeight);

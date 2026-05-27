@@ -92,6 +92,10 @@ export default function App() {
   // States guiding reactive bee character actions
   const [hasDetectedWakeWord, setHasDetectedWakeWord] = useState(false);
 
+  // Battery Status API state
+  const [batteryLevel, setBatteryLevel] = useState(1.0);
+  const [isCharging, setIsCharging] = useState(false);
+
   // Lifted search states that bridge the search bar and voice controls
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -102,6 +106,45 @@ export default function App() {
   const pwa = usePWA();
 
   const themeStyle = useMemo(() => themes[theme], [theme]);
+
+  // Browser Battery Status API listener
+  useEffect(() => {
+    let active = true;
+    let b: any = null;
+
+    const handleLevelChange = () => {
+      if (active && b) setBatteryLevel(b.level);
+    };
+    const handleChargingChange = () => {
+      if (active && b) setIsCharging(b.charging);
+    };
+
+    if ('getBattery' in navigator) {
+      (navigator as any).getBattery().then((battery: any) => {
+        if (!active) return;
+        b = battery;
+        setBatteryLevel(battery.level);
+        setIsCharging(battery.charging);
+
+        battery.addEventListener('levelchange', handleLevelChange);
+        battery.addEventListener('chargingchange', handleChargingChange);
+      }).catch((err: any) => {
+        console.warn("Battery API initialization failed:", err);
+      });
+    } else {
+      // Elegant dummy fallback for unsupported platforms (iOS Safari, Firefox, Private tabs)
+      setBatteryLevel(0.91);
+      setIsCharging(true);
+    }
+
+    return () => {
+      active = false;
+      if (b) {
+        b.removeEventListener('levelchange', handleLevelChange);
+        b.removeEventListener('chargingchange', handleChargingChange);
+      }
+    };
+  }, []);
 
   // Keep updated ref of voice status and utils to resolve circular dependency beautifully
   const voiceRef = useRef<any>(null);
@@ -404,6 +447,50 @@ export default function App() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* HIVE POWER ENERGY BAR */}
+        <div className="w-full bg-[#1C1408] border-2 border-[#D4A017]/30 px-3 py-1.5 mb-2 mt-2 flex items-center justify-between select-none" style={{ boxShadow: '2px 2px 0px #0F0A00' }}>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="font-press-start text-[7px] text-[#FFD166] animate-pulse">⚡</span>
+            <span className="font-press-start text-[6.5px] text-[#FAFAFA] tracking-wider uppercase">HIVE POWER</span>
+          </div>
+          <div className="flex items-center gap-2 flex-1 max-w-[200px] ml-4 bg-[#0F0A00]/80 p-0.5 border border-[#D4A017]/10 relative h-4">
+            <div 
+              className="h-full transition-all duration-500 ease-in-out"
+              style={{
+                width: `${batteryLevel * 100}%`,
+                backgroundColor: batteryLevel > 0.60 
+                  ? '#13D475' // Retro Emerald Green
+                  : batteryLevel > 0.25 
+                    ? '#F4B03F' // Gold / Amber
+                    : '#EF4444', // Red Alert
+                boxShadow: `0 0 8px ${
+                  batteryLevel > 0.60 
+                    ? 'rgba(19, 212, 117, 0.65)' 
+                    : batteryLevel > 0.25 
+                      ? 'rgba(244, 176, 63, 0.65)' 
+                      : 'rgba(239, 68, 68, 0.85)'
+                }`
+              }}
+            />
+            {/* Retro segmented vertical scanline grids */}
+            <div className="absolute inset-x-1 inset-y-0 bg-transparent flex justify-between pointer-events-none">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className="w-[1.5px] h-full bg-[#1C1408]/80" />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 ml-3">
+            <span className="font-press-start text-[7px] min-w-[26px] text-right" style={{ color: themeStyle.textColor }}>
+              {Math.round(batteryLevel * 100)}%
+            </span>
+            {isCharging && (
+              <span className="font-press-start text-[5px] text-[#13D475] bg-[#13D475]/10 px-1 py-0.5 border border-[#13D475]/30 animate-pulse uppercase tracking-wider">
+                CHG
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Dynamic install guidelines marquee */}

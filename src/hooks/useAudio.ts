@@ -175,20 +175,86 @@ export default function useAudio() {
   }, [isPlaying, duration]);
 
 
-  // Integrated Dynamic Audio Ducking controller
+  // Integrated Dynamic Audio Ducking controller with transitions and debounced restoration
+  const fadeIntervalRef = useRef<number | null>(null);
+  const restoreTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!playerRef.current || typeof playerRef.current.setVolume !== 'function') return;
 
+    const clearFade = () => {
+      if (fadeIntervalRef.current !== null) {
+        window.clearInterval(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+      }
+    };
+
+    const clearRestoreTimeout = () => {
+      if (restoreTimeoutRef.current !== null) {
+        window.clearTimeout(restoreTimeoutRef.current);
+        restoreTimeoutRef.current = null;
+      }
+    };
+
+    // Determine target volume
+    let finalTargetVolume = volume;
     if (isDucked) {
-      // Duck to 15% of current volume, or a minimum low level like 12 (unless muted entirely)
-      const targetVolume = isMuted ? 0 : Math.max(12, Math.floor(volume * 0.15));
-      playerRef.current.setVolume(targetVolume);
-      console.log(`Bumblebee Engine: Ducking audio stream to ${targetVolume}% (User level is ${volume}%)`);
+      // Duck to a super quiet level (8% of user volume or a solid floor of 6 so Bumblebee can hear the voice clearly)
+      finalTargetVolume = isMuted ? 0 : Math.max(6, Math.floor(volume * 0.08));
     } else {
-      // Restore player volume to the user's setting
-      playerRef.current.setVolume(isMuted ? 0 : volume);
-      console.log(`Bumblebee Engine: Restoring audio stream to setting ${volume}%`);
+      finalTargetVolume = isMuted ? 0 : volume;
     }
+
+    const fadeToVolume = (target: number) => {
+      clearFade();
+      
+      // Get current volume from player or fall back
+      let currentVol = volume;
+      try {
+        if (playerRef.current && typeof playerRef.current.getVolume === 'function') {
+          currentVol = playerRef.current.getVolume();
+        }
+      } catch (err) {}
+
+      if (currentVol === target) return;
+
+      const stepsValue = currentVol < target ? 4 : -4; // Speed of fade step
+      
+      fadeIntervalRef.current = window.setInterval(() => {
+        currentVol += stepsValue;
+        
+        // Boundaries checks
+        if ((stepsValue > 0 && currentVol >= target) || (stepsValue < 0 && currentVol <= target)) {
+          currentVol = target;
+          clearFade();
+        }
+        
+        try {
+          if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+            playerRef.current.setVolume(currentVol);
+          }
+        } catch (e) {
+          clearFade();
+        }
+      }, 25); // Butter-smooth volume transitions every 25ms
+    };
+
+    clearRestoreTimeout();
+
+    if (isDucked) {
+      // Duck IMMEDIATELY when voice is active so we hear commands instantly
+      fadeToVolume(finalTargetVolume);
+    } else {
+      // Delay volume restore slightly (e.g. 1100ms) to ignore speech recognition retry flickering
+      restoreTimeoutRef.current = window.setTimeout(() => {
+        fadeToVolume(finalTargetVolume);
+      }, 1100);
+    }
+
+    return () => {
+      clearFade();
+      clearRestoreTimeout();
+    };
   }, [isDucked, volume, isMuted]);
 
 
