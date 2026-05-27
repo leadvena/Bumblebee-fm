@@ -167,6 +167,9 @@ export default function App() {
   // Voice transcript receiver callback
   const handleTranscriptReady = useCallback(async (transcript: string) => {
     try {
+      // Warmly notify the user we are decoding their buzz command
+      voiceRef.current?.setStatusText(`Processing: "${transcript}"...`);
+
       // 1. Send text to server for Gemini decision routing
       const result = await parseVoiceCommand(transcript, audio.currentTrack, audio.isPlaying);
       
@@ -177,6 +180,7 @@ export default function App() {
       executeCommand(result.command, result.query);
     } catch (e) {
       console.error("Gemini commander parsing failure", e);
+      voiceRef.current?.setStatusText("Standby");
     }
   }, [audio.currentTrack, audio.isPlaying, executeCommand]);
 

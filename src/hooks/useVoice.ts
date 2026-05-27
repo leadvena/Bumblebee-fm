@@ -53,14 +53,53 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     }
   }, [isListening]);
 
-  // Initialize Speech Recognition
+  // Clean-up on unmount
   useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+    };
+  }, []);
+
+  // Command to trigger recording
+  const startListening = useCallback(() => {
     const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionClass) {
       setStatusText('Speech Recognition not supported in this browser.');
       return;
     }
 
+    // Clear any previous session
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+
+    latestTranscriptRef.current = '';
+
+    // Cancel any current speech synthesis first
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+
+    // Synchronously claim transcription lock in global core
+    if (window.__bumblebeeSpeechCore) {
+      window.__bumblebeeSpeechCore.isVoiceListening = true;
+      // Abort continuous wake-word detector synchronously to free mic line
+      if (typeof window.__bumblebeeSpeechCore.stopWakeWord === 'function') {
+        window.__bumblebeeSpeechCore.stopWakeWord();
+      }
+    }
+
+    setIsListening(true);
+    setStatusText('Listening...');
+
+    // Dynamic, brand-new SpeechRecognition configuration to prevent stuck sessions or re-use locks
     const rec = new SpeechRecognitionClass();
     rec.continuous = false;
     rec.interimResults = true;
@@ -73,37 +112,23 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
         window.__bumblebeeSpeechCore.isVoiceListening = true;
       }
       setStatusText('Listening...');
-      console.log("Bumblebee: Voice recording started...");
+      console.log("Bumblebee: Voice recording started on a pristine instance...");
     };
 
     rec.onerror = (event: any) => {
-      console.error('Bumblebee: Speech recognition error', event);
+      console.warn('Bumblebee: Speech recognition error', event.error);
+      if (event.error === 'aborted') {
+        // Ignored because abort is normal upon stop button triggers
+        return;
+      }
       setIsListening(false);
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isVoiceListening = false;
       }
       if (event.error === 'not-allowed') {
         setStatusText('Permission denied. Please enable mic access.');
-      } else if (event.error === 'aborted') {
-        setStatusText('Cancel');
       } else {
         setStatusText(`Error: ${event.error}`);
-      }
-    };
-
-    rec.onend = () => {
-      setIsListening(false);
-      if (window.__bumblebeeSpeechCore) {
-        window.__bumblebeeSpeechCore.isVoiceListening = false;
-      }
-      
-      const text = latestTranscriptRef.current;
-      if (text.trim()) {
-        latestTranscriptRef.current = ''; // Prevent double submissions
-        setStatusText(`"${text}"`);
-        onTranscriptReadyRef.current(text);
-      } else {
-        setStatusText(prev => prev === 'Listening...' ? 'Standby' : prev);
       }
     };
 
@@ -127,53 +152,46 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       }
     };
 
-    recognitionRef.current = rec;
-  }, []);
-
-  // Command to trigger recording
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) {
-      setStatusText('Speech Recognition unavailable.');
-      return;
-    }
-
-    latestTranscriptRef.current = '';
-
-    // Cancel any current speech synthesis first
-    try {
-      window.speechSynthesis.cancel();
-    } catch (e) {}
-
-    // Synchronously claim transcription lock in global core
-    if (window.__bumblebeeSpeechCore) {
-      window.__bumblebeeSpeechCore.isVoiceListening = true;
-      // Abort continuous wake-word detector synchronously to free mic line
-      if (typeof window.__bumblebeeSpeechCore.stopWakeWord === 'function') {
-        window.__bumblebeeSpeechCore.stopWakeWord();
+    rec.onend = () => {
+      setIsListening(false);
+      if (window.__bumblebeeSpeechCore) {
+        window.__bumblebeeSpeechCore.isVoiceListening = false;
       }
-    }
+      
+      const text = latestTranscriptRef.current;
+      if (text.trim()) {
+        latestTranscriptRef.current = ''; // Prevent double submissions
+        setStatusText(`"${text}"`);
+        onTranscriptReadyRef.current(text);
+      } else {
+        setStatusText(prev => prev === 'Listening...' ? 'Standby' : prev);
+      }
 
-    setIsListening(true);
-    setStatusText('Listening...');
+      if (recognitionRef.current === rec) {
+        recognitionRef.current = null;
+      }
+    };
 
-    // Add a safe 250ms delay to give browser mic layers time to cleanly disengage the wake-word listener
+    recognitionRef.current = rec;
+
+    // Add brief micro-timeout to cleanly disengage other audio tracks
     setTimeout(() => {
       try {
-        recognitionRef.current.start();
+        rec.start();
       } catch (e) {
-        console.warn("Speech Recognition collision/start issue, reclaiming session:", e);
+        console.warn("Speech Recognition capture collision, hard resetting session:", e);
         try {
-          recognitionRef.current.abort();
+          rec.abort();
           setTimeout(() => {
             try {
-              recognitionRef.current.start();
+              rec.start();
             } catch (err) {
-              console.error("Speech Recognition restart failed:", err);
+              console.error("Critical Speech restart failure:", err);
             }
-          }, 200);
+          }, 150);
         } catch (abortErr) {}
       }
-    }, 250);
+    }, 120);
   }, []);
 
   const stopListening = useCallback(() => {
@@ -186,20 +204,31 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop(); // Stops capture but lets onresult handle remaining buffers
+        recognitionRef.current.stop(); // Stops capture, final results propagate to onresult and then onend
       } catch (e) {
         try {
-          recognitionRef.current.abort(); // Fallback hard abort
+          recognitionRef.current.abort();
         } catch (err) {}
       }
     }
 
+    // Handle instant firing with whatever transcription is currently in buffer
     if (text.trim()) {
-      latestTranscriptRef.current = ''; // Clear it to prevent double-firion in rec.onend
+      latestTranscriptRef.current = ''; // Prevent double-triggering in onend
       setStatusText(`"${text}"`);
       onTranscriptReadyRef.current(text);
     } else {
-      setStatusText('Standby');
+      // Small micro-delay just in case speech chunks were finalizing
+      setTimeout(() => {
+        const remainingText = latestTranscriptRef.current;
+        if (remainingText.trim()) {
+          latestTranscriptRef.current = '';
+          setStatusText(`"${remainingText}"`);
+          onTranscriptReadyRef.current(remainingText);
+        } else {
+          setStatusText('Standby');
+        }
+      }, 150);
     }
   }, []);
 
