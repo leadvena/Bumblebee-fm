@@ -73,16 +73,30 @@ export default function useWakeWord({
     let active = true;
     let rec: any = null;
 
-    function initContinuousRecognition() {
+    function initContinuousRecognition(isRestart = false) {
       if (!active) return;
+      
+      // If we are currently giving a manual voice button command, do not start wake-word detector 
+      if (window.__bumblebeeSpeechCore?.isVoiceListening) {
+        console.log("Bumblebee SpeechCore: Postponing wake-word initialization because manual voice mode is active.");
+        return;
+      }
+
       try {
-        setStatus('initializing');
+        if (!isRestart) {
+          setStatus('initializing');
+        }
         console.log("Bumblebee: Initializing continuous wake-word detector via Web Speech API...");
 
         rec = new SpeechRecognitionClass();
         rec.continuous = true;
         rec.interimResults = true;
         rec.lang = 'en-US';
+
+        // Register active instance in global coordinator for synchronous termination when requested
+        if (window.__bumblebeeSpeechCore) {
+          window.__bumblebeeSpeechCore.activeWakeWordRec = rec;
+        }
 
         rec.onstart = () => {
           if (!active) return;
@@ -106,6 +120,10 @@ export default function useWakeWord({
               try {
                 if (rec) rec.abort();
               } catch (e) {}
+              
+              if (window.__bumblebeeSpeechCore?.activeWakeWordRec === rec) {
+                window.__bumblebeeSpeechCore.activeWakeWordRec = null;
+              }
               
               setIsReady(false);
               onWakeWordDetectedRef.current();
@@ -131,6 +149,9 @@ export default function useWakeWord({
         };
 
         rec.onend = () => {
+          if (window.__bumblebeeSpeechCore?.activeWakeWordRec === rec) {
+            window.__bumblebeeSpeechCore.activeWakeWordRec = null;
+          }
           if (active && wakeWordEnabled && !voiceActive) {
             console.log("Bumblebee continuous scan ended. Restarting scanning...");
             restartRec();
@@ -160,7 +181,7 @@ export default function useWakeWord({
       
       setTimeout(() => {
         if (active && wakeWordEnabled && !voiceActive) {
-          initContinuousRecognition();
+          initContinuousRecognition(true); // Treat as a background hot-restart, retaining 'ready' status
         }
       }, 400);
     }
@@ -173,6 +194,9 @@ export default function useWakeWord({
         try {
           recognitionRef.current.abort();
         } catch (e) {}
+        if (window.__bumblebeeSpeechCore?.activeWakeWordRec === recognitionRef.current) {
+          window.__bumblebeeSpeechCore.activeWakeWordRec = null;
+        }
         recognitionRef.current = null;
         console.log("Bumblebee: Stopped continuous wake-word session.");
       }

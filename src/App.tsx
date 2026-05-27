@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useAudio from './hooks/useAudio';
 import useVoice from './hooks/useVoice';
 import useWakeWord from './hooks/useWakeWord';
@@ -92,6 +92,9 @@ export default function App() {
 
   const themeStyle = useMemo(() => themes[theme], [theme]);
 
+  // Keep updated ref of voice status and utils to resolve circular dependency beautifully
+  const voiceRef = useRef<any>(null);
+
   // Command router and orchestrator
   const executeCommand = useCallback(async (command: string, query: string) => {
     console.log(`Bumblebee Command Executor: [${command}] with query "${query}"`);
@@ -123,9 +126,9 @@ export default function App() {
         break;
       case 'whats_playing':
         if (audio.currentTrack) {
-          voice.speak(`The honeycomb is vibrating with "${audio.currentTrack.title}" by ${audio.currentTrack.artist}.`);
+          voiceRef.current?.speak(`The honeycomb is vibrating with "${audio.currentTrack.title}" by ${audio.currentTrack.artist}.`);
         } else {
-          voice.speak("The audio honeycomb is quiet. Tell me what to play next!");
+          voiceRef.current?.speak("The audio honeycomb is quiet. Tell me what to play next!");
         }
         break;
       case 'shuffle':
@@ -133,7 +136,7 @@ export default function App() {
         break;
       case 'add_to_queue':
         if (query) {
-          voice.speak(`Adding that sweet track ${query} to queue list.`);
+          voiceRef.current?.speak(`Adding that sweet track ${query} to queue list.`);
         }
         break;
       default:
@@ -149,7 +152,7 @@ export default function App() {
       const result = await parseVoiceCommand(transcript, audio.currentTrack, audio.isPlaying);
       
       // 2. Play BUMBLEBEE's voice synthesized line back
-      voice.speak(result.speechResponse);
+      voiceRef.current?.speak(result.speechResponse);
 
       // 3. Trigger playback execution
       executeCommand(result.command, result.query);
@@ -164,17 +167,22 @@ export default function App() {
     voiceEnabled
   });
 
+  // Keep ref synchronized on renders
+  useEffect(() => {
+    voiceRef.current = voice;
+  }, [voice]);
+
   // Wake word triggers
   const handleWakeWordDetected = useCallback(() => {
     setHasDetectedWakeWord(true);
-    voice.speak("Buzzing in! I'm listening.");
+    voiceRef.current?.speak("Buzzing in! I'm listening.");
     
     // Automatically trigger audio recording window after speaking greeting
     setTimeout(() => {
-      voice.startListening();
+      voiceRef.current?.startListening();
       setHasDetectedWakeWord(false);
     }, 1800);
-  }, [voice]);
+  }, []);
 
   const wakeWord = useWakeWord({
     onWakeWordDetected: handleWakeWordDetected,
@@ -186,12 +194,12 @@ export default function App() {
   const handleBuildPlaylistFromHistory = useCallback(async () => {
     if (audio.history.length === 0) return;
     try {
-      voice.speak("Analyzing honey flight records! Generating your custom nectar list.");
+      voiceRef.current?.speak("Analyzing honey flight records! Generating your custom nectar list.");
       const response = await getRecommendations(audio.history);
       
       // Load top suggestion
       if (response.recommendations && response.recommendations.length > 0) {
-        voice.speak(response.speechResponse);
+        voiceRef.current?.speak(response.speechResponse);
         setActiveScreen('now-playing');
         audio.playTrack({
           id: '',
@@ -209,7 +217,7 @@ export default function App() {
   const handleQueuePlaySelected = useCallback((track: Track) => {
     audio.playTrack(track, true);
     setActiveScreen('now-playing');
-    voice.speak(`Playing queue item: ${track.title}.`);
+    voiceRef.current?.speak(`Playing queue item: ${track.title}.`);
   }, [audio]);
 
   return (
