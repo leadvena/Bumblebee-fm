@@ -75,6 +75,9 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     // Clear any previous session
     if (recognitionRef.current) {
       try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
         recognitionRef.current.abort();
       } catch (e) {}
       recognitionRef.current = null;
@@ -133,22 +136,18 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
     };
 
     rec.onresult = (event: any) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
+      let combinedTranscript = '';
+      for (let i = 0; i < event.results.length; ++i) {
+        if (event.results[i] && event.results[i][0]) {
+          combinedTranscript += event.results[i][0].transcript;
         }
       }
       
-      const currentText = finalTranscript || interimTranscript || (event.results[0] && event.results[0][0].transcript) || '';
-      if (currentText.trim()) {
+      const currentText = combinedTranscript.trim();
+      if (currentText) {
         latestTranscriptRef.current = currentText;
         setStatusText(`"${currentText}"`);
-        console.log("Bumblebee interim/final transcript: ", currentText);
+        console.log("Bumblebee transcript updated: ", currentText);
       }
     };
 
@@ -174,24 +173,23 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     recognitionRef.current = rec;
 
-    // Add brief micro-timeout to cleanly disengage other audio tracks
-    setTimeout(() => {
+    // Start recognition SYNCHRONOUSLY to satisfy browser user-gesture requirements
+    try {
+      rec.start();
+    } catch (e) {
+      console.warn("Speech Recognition capture collision, hot resetting:", e);
       try {
-        rec.start();
-      } catch (e) {
-        console.warn("Speech Recognition capture collision, hard resetting session:", e);
-        try {
-          rec.abort();
-          setTimeout(() => {
-            try {
-              rec.start();
-            } catch (err) {
-              console.error("Critical Speech restart failure:", err);
-            }
-          }, 150);
-        } catch (abortErr) {}
-      }
-    }, 120);
+        rec.abort();
+        // Fallback micro-delay only if initial synchronous start fails
+        setTimeout(() => {
+          try {
+            rec.start();
+          } catch (err) {
+            console.error("Critical Speech restart failure under fallback:", err);
+          }
+        }, 80);
+      } catch (abortErr) {}
+    }
   }, []);
 
   const stopListening = useCallback(() => {
@@ -204,31 +202,24 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop(); // Stops capture, final results propagate to onresult and then onend
+        // Disengage the listeners so the native async onend doesn't trigger double submissions
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.abort();
       } catch (e) {
-        try {
-          recognitionRef.current.abort();
-        } catch (err) {}
+        console.warn("Err disengaging event listeners on abort:", e);
       }
+      recognitionRef.current = null;
     }
 
     // Handle instant firing with whatever transcription is currently in buffer
     if (text.trim()) {
-      latestTranscriptRef.current = ''; // Prevent double-triggering in onend
+      latestTranscriptRef.current = ''; // Prevent double-triggering
       setStatusText(`"${text}"`);
       onTranscriptReadyRef.current(text);
     } else {
-      // Small micro-delay just in case speech chunks were finalizing
-      setTimeout(() => {
-        const remainingText = latestTranscriptRef.current;
-        if (remainingText.trim()) {
-          latestTranscriptRef.current = '';
-          setStatusText(`"${remainingText}"`);
-          onTranscriptReadyRef.current(remainingText);
-        } else {
-          setStatusText('Standby');
-        }
-      }, 150);
+      setStatusText('Standby');
     }
   }, []);
 
