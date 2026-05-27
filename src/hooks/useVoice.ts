@@ -42,6 +42,7 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
   const [statusText, setStatusText] = useState('Standby');
   const recognitionRef = useRef<any>(null);
   const latestTranscriptRef = useRef('');
+  const silenceTimerRef = useRef<any>(null);
 
   // Keep a ref of the latest callback to prevent re-initializing recognition on callback change
   const onTranscriptReadyRef = useRef(onTranscriptReady);
@@ -64,6 +65,9 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
           recognitionRef.current.abort();
         } catch (e) {}
       }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
     };
   }, []);
 
@@ -84,6 +88,11 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
         recognitionRef.current.abort();
       } catch (e) {}
       recognitionRef.current = null;
+    }
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
 
     latestTranscriptRef.current = '';
@@ -123,6 +132,10 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     rec.onerror = (event: any) => {
       console.warn('Bumblebee: Speech recognition error', event.error);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       if (event.error === 'aborted') {
         // Ignored because abort is normal upon stop button triggers
         return;
@@ -140,9 +153,13 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     rec.onresult = (event: any) => {
       let combinedTranscript = '';
+      let isFinal = false;
       for (let i = 0; i < event.results.length; ++i) {
         if (event.results[i] && event.results[i][0]) {
           combinedTranscript += event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            isFinal = true;
+          }
         }
       }
       
@@ -150,12 +167,37 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       if (currentText) {
         latestTranscriptRef.current = currentText;
         setStatusText(`"${currentText}"`);
-        console.log("Bumblebee transcript updated: ", currentText);
+        console.log("Bumblebee transcript updated: ", currentText, " (isFinal:", isFinal, ")");
+
+        // Clear existing silence timer
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+
+        // Set a timer to automatically trigger stop
+        // Wait 700ms if browser marked as final; 1300ms if we're paused or interim results pause.
+        const delay = isFinal ? 700 : 1300;
+        silenceTimerRef.current = setTimeout(() => {
+          console.log(`Bumblebee: Silence detected for ${delay}ms. Auto-stopping with transcript: "${currentText}"`);
+          if (recognitionRef.current === rec) {
+            try {
+              rec.stop(); // Stops mic recording and triggers the onend callback
+            } catch (err) {
+              console.warn("Bumblebee: Failed to gently stop, force-end stream:", err);
+              // Force trigger fallback if stop fails
+              rec.onend();
+            }
+          }
+        }, delay);
       }
     };
 
     rec.onend = () => {
       setIsListening(false);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isVoiceListening = false;
       }
@@ -197,6 +239,10 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
   const stopListening = useCallback(() => {
     setIsListening(false);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     if (window.__bumblebeeSpeechCore) {
       window.__bumblebeeSpeechCore.isVoiceListening = false;
     }
