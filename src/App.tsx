@@ -87,6 +87,11 @@ export default function App() {
   // States guiding reactive bee character actions
   const [hasDetectedWakeWord, setHasDetectedWakeWord] = useState(false);
 
+  // Lifted search states that bridge the search bar and voice controls
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+
   // Load custom utilities
   const audio = useAudio();
   const pwa = usePWA();
@@ -105,16 +110,21 @@ export default function App() {
       case 'mood':
         if (query) {
           audio.setEqualizer(command === 'mood' ? 'lofi' : 'flat');
-          setActiveScreen('now-playing');
+          setSearchQuery(query);
+          setIsSearchLoading(true);
           try {
             const results = await searchYouTube(query);
+            setSearchResults(results);
             if (results && results.length > 0) {
               await audio.playTrack(results[0]);
+              setActiveScreen('now-playing');
             } else {
               voiceRef.current?.speak(`I searched but couldn't find any sweet tracks on YouTube matching ${query}.`);
             }
           } catch (err) {
             console.error("Voice command play search failed:", err);
+          } finally {
+            setIsSearchLoading(false);
           }
         }
         break;
@@ -162,7 +172,7 @@ export default function App() {
         console.warn("Bumblebee: Noted general query");
         break;
     }
-  }, [audio]);
+  }, [audio, setSearchQuery, setSearchResults, setIsSearchLoading]);
 
   // Voice transcript receiver callback
   const handleTranscriptReady = useCallback(async (transcript: string) => {
@@ -434,6 +444,12 @@ export default function App() {
             statusText={voice.statusText}
             isListening={voice.isListening}
             onToggleListening={voice.toggleListening}
+            query={searchQuery}
+            setQuery={setSearchQuery}
+            results={searchResults}
+            setResults={setSearchResults}
+            isLoading={isSearchLoading}
+            setIsLoading={setIsSearchLoading}
           />
         )}
 

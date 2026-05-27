@@ -26,6 +26,14 @@ interface SearchScreenProps {
   statusText: string;
   isListening?: boolean;
   onToggleListening?: () => void;
+  
+  // Lifted state props
+  query: string;
+  setQuery: (q: string) => void;
+  results: Track[];
+  setResults: (r: Track[]) => void;
+  isLoading: boolean;
+  setIsLoading: (l: boolean) => void;
 }
 
 export default function SearchScreen({
@@ -34,11 +42,14 @@ export default function SearchScreen({
   onAddToQueue,
   statusText,
   isListening = false,
-  onToggleListening
+  onToggleListening,
+  query,
+  setQuery,
+  results,
+  setResults,
+  isLoading,
+  setIsLoading
 }: SearchScreenProps) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Track[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   
