@@ -424,6 +424,8 @@ export default function App() {
             onPlayTrack={audio.playTrack}
             onAddToQueue={audio.addToQueue}
             statusText={voice.statusText}
+            isListening={voice.isListening}
+            onToggleListening={voice.toggleListening}
           />
         )}
 

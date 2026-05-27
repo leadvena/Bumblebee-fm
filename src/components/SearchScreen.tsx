@@ -97,6 +97,7 @@ export default function SearchScreen({
       const parsedQuery = statusText.replace(/"/g, '');
       if (parsedQuery.trim()) {
         setQuery(parsedQuery);
+        triggerSearch(parsedQuery);
       }
     }
   }, [statusText]);

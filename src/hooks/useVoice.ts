@@ -38,6 +38,7 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
   const [isListening, setIsListening] = useState(false);
   const [statusText, setStatusText] = useState('Standby');
   const recognitionRef = useRef<any>(null);
+  const latestTranscriptRef = useRef('');
 
   // Keep a ref of the latest callback to prevent re-initializing recognition on callback change
   const onTranscriptReadyRef = useRef(onTranscriptReady);
@@ -62,11 +63,12 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
     const rec = new SpeechRecognitionClass();
     rec.continuous = false;
-    rec.interimResults = false;
+    rec.interimResults = true;
     rec.lang = 'en-US';
 
     rec.onstart = () => {
       setIsListening(true);
+      latestTranscriptRef.current = '';
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isVoiceListening = true;
       }
@@ -94,27 +96,34 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       if (window.__bumblebeeSpeechCore) {
         window.__bumblebeeSpeechCore.isVoiceListening = false;
       }
-      // Soft clean: only reset to Standby if still looking like active listening
-      setStatusText(prev => prev === 'Listening...' ? 'Standby' : prev);
+      
+      const text = latestTranscriptRef.current;
+      if (text.trim()) {
+        latestTranscriptRef.current = ''; // Prevent double submissions
+        setStatusText(`"${text}"`);
+        onTranscriptReadyRef.current(text);
+      } else {
+        setStatusText(prev => prev === 'Listening...' ? 'Standby' : prev);
+      }
     };
 
     rec.onresult = (event: any) => {
-      const results = event.results;
-      if (results && results.length > 0) {
-        const transcript = results[0][0].transcript;
-        console.log("Bumblebee: Registered transcript:", transcript);
-        setStatusText(`"${transcript}"`);
-        
-        // Stop listing immediately so the user's mic closes immediately!
-        try {
-          rec.stop();
-        } catch (e) {}
-        setIsListening(false);
-        if (window.__bumblebeeSpeechCore) {
-          window.__bumblebeeSpeechCore.isVoiceListening = false;
+      let interimTranscript = '';
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
         }
-
-        onTranscriptReadyRef.current(transcript);
+      }
+      
+      const currentText = finalTranscript || interimTranscript || (event.results[0] && event.results[0][0].transcript) || '';
+      if (currentText.trim()) {
+        latestTranscriptRef.current = currentText;
+        setStatusText(`"${currentText}"`);
+        console.log("Bumblebee interim/final transcript: ", currentText);
       }
     };
 
@@ -127,6 +136,8 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
       setStatusText('Speech Recognition unavailable.');
       return;
     }
+
+    latestTranscriptRef.current = '';
 
     // Cancel any current speech synthesis first
     try {
@@ -167,10 +178,12 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
 
   const stopListening = useCallback(() => {
     setIsListening(false);
-    setStatusText('Processing command...');
     if (window.__bumblebeeSpeechCore) {
       window.__bumblebeeSpeechCore.isVoiceListening = false;
     }
+
+    const text = latestTranscriptRef.current;
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop(); // Stops capture but lets onresult handle remaining buffers
@@ -179,6 +192,14 @@ export default function useVoice({ onTranscriptReady, voiceEnabled }: UseVoiceOp
           recognitionRef.current.abort(); // Fallback hard abort
         } catch (err) {}
       }
+    }
+
+    if (text.trim()) {
+      latestTranscriptRef.current = ''; // Clear it to prevent double-firion in rec.onend
+      setStatusText(`"${text}"`);
+      onTranscriptReadyRef.current(text);
+    } else {
+      setStatusText('Standby');
     }
   }, []);
 
