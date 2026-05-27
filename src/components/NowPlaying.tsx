@@ -90,6 +90,7 @@ export default function NowPlaying({
           title={title}
           artist={artist}
           themeStyle={themeStyle}
+          trackId={currentTrack?.id || null}
         />
 
         {/* Active Audio Wave Progress Track */}

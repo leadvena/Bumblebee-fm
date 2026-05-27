@@ -18,6 +18,7 @@ import {
   Plus 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import DynamicTrackThumbnail from './DynamicTrackThumbnail';
 
 interface SearchScreenProps {
   themeStyle: any;
@@ -352,15 +353,9 @@ export default function SearchScreen({
                 >
                   <div className="flex items-center gap-2.5 p-1.5">
                     {/* Thumbnail box */}
-                    <div className="relative w-12 h-12 border border-[#A89060]/30 shrink-0 overflow-hidden group">
-                      <img 
-                        src={track.thumbnail} 
-                        alt={track.title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <div className="relative shrink-0 group">
+                      <DynamicTrackThumbnail track={track} size="md" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
                         <Music className="w-4 h-4" style={{ color: accentColor }} />
                       </div>
                     </div>

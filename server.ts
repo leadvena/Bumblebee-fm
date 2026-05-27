@@ -230,6 +230,103 @@ app.post("/api/gemini/suggest", async (req, res) => {
   }
 });
 
+/**
+ * Dynamic Pixel Art Cover Generator using Google GenAI SDK and Imagen 3
+ */
+app.post("/api/cover/generate", async (req, res) => {
+  const { title, artist } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: "Title is required" });
+  }
+
+  // Fallback to beautiful retro geometric SVG generator if Gemini is missing or fails
+  if (!ai) {
+    const fallbackSvg = generateRetroSvgPlaceholder(title, artist || "Bumblebee Studio");
+    return res.json({ url: fallbackSvg });
+  }
+
+  try {
+    const cleanTitle = title.replace(/\[Offline.*\]/gi, "").trim();
+    const cleanArtist = (artist || "Bumblebee Retro").trim();
+    const prompt = `Retro 16-bit pixel art square game cover album design for a track called "${cleanTitle}" by "${cleanArtist}". Nostalgic pixelated details, chiptune console vibe, cute bee or amber honey elements, vibrant pixel palette, centered crop, elegant composition.`;
+    
+    console.log(`Bumblebee Server: Generating Cover for "${cleanTitle}" via Imagen...`);
+    const imgRes = await ai.models.generateImages({
+      model: "imagen-3.0-generate-002",
+      prompt: prompt,
+      config: {
+        numberOfImages: 1,
+        outputMimeType: "image/jpeg",
+        aspectRatio: "1:1",
+      },
+    });
+
+    if (imgRes?.generatedImages?.[0]?.image?.imageBytes) {
+      const base64 = imgRes.generatedImages[0].image.imageBytes;
+      return res.json({ url: `data:image/jpeg;base64,${base64}` });
+    }
+
+    throw new Error("No image data returned from Google GenAI model");
+  } catch (error: any) {
+    console.warn("Cover image generation fallback triggered:", error.message || error);
+    const fallbackSvg = generateRetroSvgPlaceholder(title, artist || "Bumblebee Studio");
+    return res.json({ url: fallbackSvg });
+  }
+});
+
+function generateRetroSvgPlaceholder(title: string, artist: string): string {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = title.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue1 = Math.abs(hash % 360);
+  const hue2 = Math.abs((hash + 140) % 360);
+  
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+      <defs>
+        <linearGradient id="grad-${hash}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:hsl(${hue1}, 70%, 15%);stop-opacity:1" />
+          <stop offset="100%" style="stop-color:hsl(${hue2}, 80%, 8%);stop-opacity:1" />
+        </linearGradient>
+        <pattern id="pixelGrid-${hash}" width="16" height="16" patternUnits="userSpaceOnUse">
+          <rect width="16" height="16" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="400" height="400" fill="url(#grad-${hash})" />
+      <rect width="400" height="400" fill="url(#pixelGrid-${hash})" />
+      
+      <!-- Honeycomb design -->
+      <g transform="translate(140, 120)">
+        <polygon points="60,10 110,40 110,100 60,130 10,100 10,40" fill="none" stroke="#D4A017" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.8" />
+        <polygon points="60,20 100,45 100,95 60,120 20,95 20,45" fill="rgba(212, 160, 23, 0.15)" />
+        <circle cx="60" cy="70" r="14" fill="#D4A017" />
+        
+        <!-- wing pixels -->
+        <rect x="34" y="52" width="10" height="10" fill="#E0F7FA" opacity="0.6"/>
+        <rect x="76" y="52" width="10" height="10" fill="#E0F7FA" opacity="0.6"/>
+      </g>
+      
+      <rect x="25" y="25" width="350" height="350" fill="none" stroke="#D4A017" stroke-width="2" opacity="0.25" />
+      
+      <!-- Retro labels -->
+      <rect x="40" y="275" width="320" height="80" fill="rgba(10,8,5,0.85)" rx="4" stroke="#D4A017" stroke-width="1.5" opacity="0.9"/>
+      <text x="55" y="305" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#FFF8E7" letter-spacing="1">
+        ${title.substring(0, 22).replace(/\[Offline.*\]/gi, "").toUpperCase()}
+      </text>
+      <text x="55" y="325" font-family="'Courier New', monospace" font-size="10" fill="#D4A017" opacity="0.8">
+        BY ${artist.substring(0, 30).toUpperCase()}
+      </text>
+      <text x="55" y="343" font-family="'Courier New', monospace" font-size="8.5" fill="#E0F7FA" opacity="0.5" letter-spacing="1">
+        BEE-OS PIXEL SYNTH SYSTEM
+      </text>
+    </svg>
+  `;
+  
+  const base64 = Buffer.from(svg.trim()).toString('base64');
+  return `data:image/svg+xml;base64,${base64}`;
+}
+
 
 // ─── FRONTEND INTEGRATION & VITE DRIVER ───────────────────────────────
 

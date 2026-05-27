@@ -10,6 +10,7 @@ interface SpinningDiscProps {
   title: string;
   artist: string;
   themeStyle: any;
+  trackId?: string | null;
 }
 
 export default function SpinningDisc({
@@ -19,10 +20,99 @@ export default function SpinningDisc({
   thumbnailUrl,
   title,
   artist,
-  themeStyle
+  themeStyle,
+  trackId
 }: SpinningDiscProps) {
-  // Setup fallback image if thumbnail is absent (a golden pixel art music note)
-  const finalThumbnail = thumbnailUrl || "https://images.unsplash.com/photo-1614680376593-902f74fa0d41?w=300";
+  // State for resolved high-fidelity cover image
+  const [resolvedCover, setResolvedCover] = React.useState<string>('https://images.unsplash.com/photo-1614680376593-902f74fa0d41?w=300');
+  const [generating, setGenerating] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (!title || title === 'NO SONGS LOADING' || title === 'NO TRACK LOADED') {
+      setResolvedCover("https://images.unsplash.com/photo-1614680376593-902f74fa0d41?w=300");
+      return;
+    }
+
+    const isLowQuality = 
+      !thumbnailUrl || 
+      thumbnailUrl.includes('/default.jpg') || 
+      thumbnailUrl.trim() === '';
+
+    if (!isLowQuality) {
+      setResolvedCover(thumbnailUrl || '');
+      return;
+    }
+
+    // Attempt cache match
+    const cacheKey = trackId ? `bumble_cover_${trackId}` : `bumble_cover_title_${encodeURIComponent(title)}`;
+    const coverCache = (window as any)._bumbleCoverCache || {};
+    if (!(window as any)._bumbleCoverCache) {
+       (window as any)._bumbleCoverCache = coverCache;
+    }
+
+    const memoryMatch = trackId ? coverCache[trackId] : coverCache[title];
+    if (memoryMatch) {
+      setResolvedCover(memoryMatch);
+      return;
+    }
+
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setResolvedCover(cached);
+        if (trackId) coverCache[trackId] = cached;
+        coverCache[title] = cached;
+        return;
+      }
+    } catch (e) {
+      console.warn("Storage read failed in SpinningDisc", e);
+    }
+
+    // Trigger generate cover fetch
+    setGenerating(true);
+    let isMounted = true;
+
+    async function fetchCover() {
+      try {
+        const response = await fetch('/api/cover/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ title, artist })
+        });
+        if (!response.ok) throw new Error("Image proxy error");
+        const data = await response.json();
+        if (data.url && isMounted) {
+          setResolvedCover(data.url);
+          if (trackId) coverCache[trackId] = data.url;
+          coverCache[title] = data.url;
+          try {
+            localStorage.setItem(cacheKey, data.url);
+          } catch (err) {
+            console.warn("Storage save failed in SpinningDisc due to quota limits");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to generate custom disc cover:", err);
+        if (isMounted) {
+          setResolvedCover(`https://picsum.photos/seed/${encodeURIComponent(title)}/300/300`);
+        }
+      } finally {
+        if (isMounted) {
+          setGenerating(false);
+        }
+      }
+    }
+
+    fetchCover();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [thumbnailUrl, title, artist, trackId]);
+
+  const finalThumbnail = resolvedCover;
 
   const accentColor = themeStyle?.accentColor || '#D4A017';
   const glowColor = themeStyle?.glow || '#FFD166';
